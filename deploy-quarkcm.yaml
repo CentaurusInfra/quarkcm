@@ -1,0 +1,61 @@
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: quarkcm-operator
+rules:
+- apiGroups: [""]
+  resources: ["pods", "nodes"]
+  verbs: ["get", "watch", "list"]
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: quarkcm-operator
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: quarkcm-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: quarkcm-operator
+subjects:
+  - kind: ServiceAccount
+    name: quarkcm-operator
+    namespace: default
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: quarkcm-daemon
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      job: quarkcm-daemon
+  template:
+    metadata:
+      labels:
+        job: quarkcm-daemon
+    spec:
+      tolerations:
+        # The daemon shall run on the master node
+        - effect: NoSchedule
+          operator: Exists
+      serviceAccountName: quarkcm-operator
+      terminationGracePeriodSeconds: 0
+      hostNetwork: true
+      hostPID: true
+      containers:
+      - name: quarkcm-daemon
+        image: quarkcm/quarkcm:v0.1.0
+        securityContext:
+          privileged: true
+      volumes:
+      - name: quarkcm-volume
+        hostPath:
+          path: /var
+          type: Directory

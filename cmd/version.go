@@ -32,7 +32,7 @@ var versionCmd = &cobra.Command{
 }
 
 func versionPrettyString() {
-	fmt.Println("v0.1")
+	fmt.Println("v0.1.0")
 }
 
 func init() {
