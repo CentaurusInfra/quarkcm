@@ -27,7 +27,7 @@ import (
 	"github.com/CentaurusInfra/quarkcm/pkg/event"
 	"github.com/CentaurusInfra/quarkcm/pkg/handlers"
 	"github.com/CentaurusInfra/quarkcm/pkg/utils"
-	"github.com/sirupsen/logrus"
+	"k8s.io/klog"
 
 	api_v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -55,7 +55,7 @@ type Event struct {
 
 // Controller object
 type Controller struct {
-	logger       *logrus.Entry
+	resourceType string
 	clientset    kubernetes.Interface
 	queue        workqueue.RateLimitingInterface
 	informer     cache.SharedIndexInformer
@@ -127,7 +127,7 @@ func newResourceController(client kubernetes.Interface, eventHandler handlers.Ha
 			newEvent.key, err = cache.MetaNamespaceKeyFunc(obj)
 			newEvent.eventType = "create"
 			newEvent.resourceType = resourceType
-			logrus.WithField("pkg", "quarkcm-"+resourceType).Infof("Processing add to %v: %s", resourceType, newEvent.key)
+			klog.Infof("Processing add to %v: %s", resourceType, newEvent.key)
 			if err == nil {
 				queue.Add(newEvent)
 			}
@@ -136,7 +136,7 @@ func newResourceController(client kubernetes.Interface, eventHandler handlers.Ha
 			newEvent.key, err = cache.MetaNamespaceKeyFunc(old)
 			newEvent.eventType = "update"
 			newEvent.resourceType = resourceType
-			logrus.WithField("pkg", "quarkcm-"+resourceType).Infof("Processing update to %v: %s", resourceType, newEvent.key)
+			klog.Infof("Processing update to %v: %s", resourceType, newEvent.key)
 			if err == nil {
 				queue.Add(newEvent)
 			}
@@ -146,7 +146,7 @@ func newResourceController(client kubernetes.Interface, eventHandler handlers.Ha
 			newEvent.eventType = "delete"
 			newEvent.resourceType = resourceType
 			newEvent.namespace = utils.GetObjectMetaData(obj).Namespace
-			logrus.WithField("pkg", "quarkcm-"+resourceType).Infof("Processing delete to %v: %s", resourceType, newEvent.key)
+			klog.Infof("Processing delete to %v: %s", resourceType, newEvent.key)
 			if err == nil {
 				queue.Add(newEvent)
 			}
@@ -154,7 +154,7 @@ func newResourceController(client kubernetes.Interface, eventHandler handlers.Ha
 	})
 
 	return &Controller{
-		logger:       logrus.WithField("pkg", "quarkcm-"+resourceType),
+		resourceType: resourceType,
 		clientset:    client,
 		informer:     informer,
 		queue:        queue,
@@ -167,17 +167,17 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	c.logger.Info("Starting quarkcm controller")
+	klog.Infof("Starting quarkcm %s controller", c.resourceType)
 	serverStartTime = time.Now().Local()
 
 	go c.informer.Run(stopCh)
 
 	if !cache.WaitForCacheSync(stopCh, c.HasSynced) {
-		utilruntime.HandleError(fmt.Errorf("Timed out waiting for caches to sync"))
+		utilruntime.HandleError(fmt.Errorf("%s controller timed out waiting for caches to sync", c.resourceType))
 		return
 	}
 
-	c.logger.Info("quarkcm controller synced and ready")
+	klog.Infof("quarkcm %s controller synced and ready", c.resourceType)
 
 	wait.Until(c.runWorker, time.Second, stopCh)
 }
@@ -210,11 +210,11 @@ func (c *Controller) processNextItem() bool {
 		// No error, reset the ratelimit counters
 		c.queue.Forget(newEvent)
 	} else if c.queue.NumRequeues(newEvent) < maxRetries {
-		c.logger.Errorf("Error processing %s (will retry): %v", newEvent.(Event).key, err)
+		klog.Errorf("Error processing %s (will retry): %v", newEvent.(Event).key, err)
 		c.queue.AddRateLimited(newEvent)
 	} else {
 		// err != nil and too many retries
-		c.logger.Errorf("Error processing %s (giving up): %v", newEvent.(Event).key, err)
+		klog.Errorf("Error processing %s (giving up): %v", newEvent.(Event).key, err)
 		c.queue.Forget(newEvent)
 		utilruntime.HandleError(err)
 	}

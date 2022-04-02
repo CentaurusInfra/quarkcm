@@ -17,12 +17,9 @@ limitations under the License.
 package cmd
 
 import (
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
-)
+	"fmt"
 
-var (
-	buildDate, gitCommit string
+	"github.com/spf13/cobra"
 )
 
 var versionCmd = &cobra.Command{
@@ -35,8 +32,7 @@ var versionCmd = &cobra.Command{
 }
 
 func versionPrettyString() {
-	logrus.Info("gitCommit: ", gitCommit)
-	logrus.Info("buildDate: ", buildDate)
+	fmt.Println("v0.1")
 }
 
 func init() {

@@ -16,8 +16,14 @@ limitations under the License.
 
 package main
 
-import "github.com/CentaurusInfra/quarkcm/cmd"
+import (
+	"github.com/CentaurusInfra/quarkcm/cmd"
+	"k8s.io/klog"
+)
 
 func main() {
+	klog.InitFlags(nil)
+	defer klog.Flush()
+
 	cmd.Execute()
 }

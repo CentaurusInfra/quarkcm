@@ -17,7 +17,6 @@ require (
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/pelletier/go-toml v1.0.1 // indirect
 	github.com/segmentio/textio v1.2.0
-	github.com/sirupsen/logrus v1.6.0
 	github.com/spf13/cast v1.1.0 // indirect
 	github.com/spf13/cobra v0.0.1
 	github.com/spf13/jwalterweatherman v0.0.0-20180109140146-7c0cea34c8ec // indirect
@@ -31,4 +30,5 @@ require (
 	k8s.io/api v0.16.8
 	k8s.io/apimachinery v0.16.8
 	k8s.io/client-go v0.16.8
+	k8s.io/klog v1.0.0 // indirect
 )
