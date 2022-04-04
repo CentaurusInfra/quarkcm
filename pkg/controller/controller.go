@@ -29,12 +29,8 @@ import (
 	"github.com/CentaurusInfra/quarkcm/pkg/utils"
 	"k8s.io/klog"
 
-	api_v1 "k8s.io/api/core/v1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -62,7 +58,7 @@ type Controller struct {
 }
 
 // Start prepares watchers and run their controllers, then waits for process termination signals
-func Start(eventHandler handlers.Handler) {
+func Start() {
 	var kubeClient kubernetes.Interface
 
 	if _, err := rest.InClusterConfig(); err != nil {
@@ -71,41 +67,13 @@ func Start(eventHandler handlers.Handler) {
 		kubeClient = utils.GetClient()
 	}
 
-	podInformer := cache.NewSharedIndexInformer(
-		&cache.ListWatch{
-			ListFunc: func(options meta_v1.ListOptions) (runtime.Object, error) {
-				return kubeClient.CoreV1().Pods("").List(options)
-			},
-			WatchFunc: func(options meta_v1.ListOptions) (watch.Interface, error) {
-				return kubeClient.CoreV1().Pods("").Watch(options)
-			},
-		},
-		&api_v1.Pod{},
-		0, //Skip resync
-		cache.Indexers{},
-	)
-
-	podController := newResourceController(kubeClient, eventHandler, podInformer, "pod")
+	podController := NewPodController(kubeClient)
 	podStopCh := make(chan struct{})
 	defer close(podStopCh)
 
 	go podController.Run(podStopCh)
 
-	nodeInformer := cache.NewSharedIndexInformer(
-		&cache.ListWatch{
-			ListFunc: func(options meta_v1.ListOptions) (runtime.Object, error) {
-				return kubeClient.CoreV1().Nodes().List(options)
-			},
-			WatchFunc: func(options meta_v1.ListOptions) (watch.Interface, error) {
-				return kubeClient.CoreV1().Nodes().Watch(options)
-			},
-		},
-		&api_v1.Node{},
-		0, //Skip resync
-		cache.Indexers{},
-	)
-
-	nodeController := newResourceController(kubeClient, eventHandler, nodeInformer, "node")
+	nodeController := NewNodeController(kubeClient)
 	nodeStopCh := make(chan struct{})
 	defer close(nodeStopCh)
 
@@ -115,50 +83,6 @@ func Start(eventHandler handlers.Handler) {
 	signal.Notify(sigterm, syscall.SIGTERM)
 	signal.Notify(sigterm, syscall.SIGINT)
 	<-sigterm
-}
-
-func newResourceController(client kubernetes.Interface, eventHandler handlers.Handler, informer cache.SharedIndexInformer, resourceType string) *Controller {
-	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	var eventItem EventItem
-	var err error
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			eventItem.key, err = cache.MetaNamespaceKeyFunc(obj)
-			eventItem.eventType = "create"
-			eventItem.resourceType = resourceType
-			klog.Infof("Processing add to %v: %s", resourceType, eventItem.key)
-			if err == nil {
-				queue.Add(eventItem)
-			}
-		},
-		UpdateFunc: func(old, new interface{}) {
-			eventItem.key, err = cache.MetaNamespaceKeyFunc(old)
-			eventItem.eventType = "update"
-			eventItem.resourceType = resourceType
-			klog.Infof("Processing update to %v: %s", resourceType, eventItem.key)
-			if err == nil {
-				queue.Add(eventItem)
-			}
-		},
-		DeleteFunc: func(obj interface{}) {
-			eventItem.key, err = cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-			eventItem.eventType = "delete"
-			eventItem.resourceType = resourceType
-			eventItem.namespace = utils.GetObjectMetaData(obj).Namespace
-			klog.Infof("Processing delete to %v: %s", resourceType, eventItem.key)
-			if err == nil {
-				queue.Add(eventItem)
-			}
-		},
-	})
-
-	return &Controller{
-		resourceType: resourceType,
-		clientset:    client,
-		informer:     informer,
-		queue:        queue,
-		eventHandler: eventHandler,
-	}
 }
 
 // Run starts the quarkcm controller
@@ -240,16 +164,14 @@ func (c *Controller) processItem(eventItem EventItem) error {
 	// process events based on its type
 	switch eventItem.eventType {
 	case "create":
-		if objectMeta.CreationTimestamp.Sub(serverStartTime).Seconds() > 0 {
-			kbEvent := event.Event{
-				Name:      objectMeta.Name,
-				Namespace: eventItem.namespace,
-				Kind:      eventItem.resourceType,
-				Reason:    "Created",
-			}
-			c.eventHandler.Handle(kbEvent)
-			return nil
+		kbEvent := event.Event{
+			Name:      objectMeta.Name,
+			Namespace: eventItem.namespace,
+			Kind:      eventItem.resourceType,
+			Reason:    "Created",
 		}
+		c.eventHandler.Handle(kbEvent)
+		return nil
 	case "update":
 		kbEvent := event.Event{
 			Name:      eventItem.key,

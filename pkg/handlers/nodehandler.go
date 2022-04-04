@@ -14,13 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package client
+package handlers
 
 import (
-	"github.com/CentaurusInfra/quarkcm/pkg/controller"
+	"k8s.io/klog"
+
+	"github.com/CentaurusInfra/quarkcm/pkg/event"
 )
 
-// Run runs the event loop processing with given handler
-func Run() {
-	controller.Start()
+type NodeHandler struct {
+}
+
+func (d *NodeHandler) Init() error {
+	return nil
+}
+
+// Handle handles an event.
+func (d *NodeHandler) Handle(e event.Event) {
+	klog.Infof("Handle node event %s", e)
 }

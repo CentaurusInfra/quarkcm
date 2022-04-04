@@ -17,33 +17,10 @@ limitations under the License.
 package handlers
 
 import (
-	"log"
-
 	"github.com/CentaurusInfra/quarkcm/pkg/event"
 )
 
-// Handler is implemented by any handler.
-// The Handle method is used to process event
 type Handler interface {
 	Init() error
 	Handle(e event.Event)
-}
-
-// Map maps each event handler function to a name for easily lookup
-var Map = map[string]interface{}{
-	"default": &Default{},
-}
-
-// Default handler implements Handler interface,
-// print each event with JSON format
-type Default struct {
-}
-
-func (d *Default) Init() error {
-	return nil
-}
-
-// Handle handles an event.
-func (d *Default) Handle(e event.Event) {
-	log.Printf("Handle event %s", e)
 }
