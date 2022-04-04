@@ -17,24 +17,18 @@ limitations under the License.
 package handlers
 
 import (
+	"github.com/CentaurusInfra/quarkcm/pkg/objects"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog"
-
-	"github.com/CentaurusInfra/quarkcm/pkg/event"
 )
 
 type NodeHandler struct {
 }
 
-func (d *NodeHandler) Init() error {
-	return nil
+func (d *NodeHandler) Handle(eventItem objects.EventItem) {
+	klog.Infof("Handle node event %s:%s, tracking: %s", eventItem.Key, eventItem.EventType, eventItem.Id)
+	d.handleInternal(eventItem.EventType, eventItem.Obj.(*v1.Node))
 }
 
-// Handle handles an event.
-func (d *NodeHandler) Handle(e event.Event) {
-	d.handleInternal(e, e.Obj.(*v1.Node))
-}
-
-func (d *NodeHandler) handleInternal(e event.Event, node *v1.Node) {
-	klog.Infof("Handle node event %s", node.Name)
+func (d *NodeHandler) handleInternal(eventType string, node *v1.Node) {
 }

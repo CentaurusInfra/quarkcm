@@ -19,7 +19,8 @@ package controller
 import (
 	"github.com/CentaurusInfra/quarkcm/pkg/constants"
 	"github.com/CentaurusInfra/quarkcm/pkg/handlers"
-	"github.com/CentaurusInfra/quarkcm/pkg/utils"
+	"github.com/CentaurusInfra/quarkcm/pkg/objects"
+	"github.com/google/uuid"
 	api_v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -69,30 +70,32 @@ func NewNodeController(client kubernetes.Interface) *Controller {
 
 func newResourceController(client kubernetes.Interface, eventHandler handlers.Handler, informer cache.SharedIndexInformer, resourceType string) *Controller {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	var eventItem EventItem
+	var eventItem objects.EventItem
 	var err error
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			eventItem.key, err = cache.MetaNamespaceKeyFunc(obj)
-			eventItem.eventType = constants.EventType_Set
-			klog.Infof("Processing add to %v: %s", resourceType, eventItem.key)
+			eventItem.Key, err = cache.MetaNamespaceKeyFunc(obj)
+			eventItem.EventType = constants.EventType_Set
+			eventItem.Id = uuid.New().String()
+			klog.Infof("Processing add to %v: %s tracking: %s", resourceType, eventItem.Key, eventItem.Id)
 			if err == nil {
 				queue.Add(eventItem)
 			}
 		},
 		UpdateFunc: func(old, new interface{}) {
-			eventItem.key, err = cache.MetaNamespaceKeyFunc(old)
-			eventItem.eventType = constants.EventType_Set
-			klog.Infof("Processing update to %v: %s", resourceType, eventItem.key)
+			eventItem.Key, err = cache.MetaNamespaceKeyFunc(old)
+			eventItem.EventType = constants.EventType_Set
+			eventItem.Id = uuid.New().String()
+			klog.Infof("Processing update to %v: %s tracking: %s", resourceType, eventItem.Key, eventItem.Id)
 			if err == nil {
 				queue.Add(eventItem)
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
-			eventItem.key, err = cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-			eventItem.eventType = constants.EventType_Delete
-			eventItem.namespace = utils.GetObjectMetaData(obj).Namespace
-			klog.Infof("Processing delete to %v: %s", resourceType, eventItem.key)
+			eventItem.Key, err = cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+			eventItem.EventType = constants.EventType_Delete
+			eventItem.Id = uuid.New().String()
+			klog.Infof("Processing delete to %v: %s tracking: %s", resourceType, eventItem.Key, eventItem.Id)
 			if err == nil {
 				queue.Add(eventItem)
 			}

@@ -17,10 +17,9 @@ limitations under the License.
 package handlers
 
 import (
+	"github.com/CentaurusInfra/quarkcm/pkg/objects"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog"
-
-	"github.com/CentaurusInfra/quarkcm/pkg/event"
 )
 
 type PodHandler struct {
@@ -30,10 +29,10 @@ func (d *PodHandler) Init() error {
 	return nil
 }
 
-func (d *PodHandler) Handle(e event.Event) {
-	d.handleInternal(e, e.Obj.(*v1.Pod))
+func (d *PodHandler) Handle(eventItem objects.EventItem) {
+	klog.Infof("Handle pod event %s:%s, tracking: %s", eventItem.Key, eventItem.EventType, eventItem.Id)
+	d.handleInternal(eventItem.EventType, eventItem.Obj.(*v1.Pod))
 }
 
-func (d *PodHandler) handleInternal(e event.Event, pod *v1.Pod) {
-	klog.Infof("Handle pod event %s", pod.Name)
+func (d *PodHandler) handleInternal(eventType string, pod *v1.Pod) {
 }

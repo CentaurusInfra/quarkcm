@@ -3,8 +3,6 @@ package utils
 import (
 	"os"
 
-	api_v1 "k8s.io/api/core/v1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -47,16 +45,4 @@ func GetClientOutOfCluster() kubernetes.Interface {
 	}
 
 	return clientset
-}
-
-// GetObjectMetaData returns metadata of a given k8s object
-func GetObjectMetaData(obj interface{}) (objectMeta meta_v1.ObjectMeta) {
-
-	switch object := obj.(type) {
-	case *api_v1.Pod:
-		objectMeta = object.ObjectMeta
-	case *api_v1.Node:
-		objectMeta = object.ObjectMeta
-	}
-	return objectMeta
 }

@@ -14,12 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package event
+package objects
 
-// Event represent an event got from k8s api server
-type Event struct {
-	Namespace string
+type EventItem struct {
+	Id        string
+	Key       string
 	EventType string
-	Name      string
+	Namespace string
 	Obj       interface{}
 }

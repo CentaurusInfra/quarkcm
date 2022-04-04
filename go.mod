@@ -8,6 +8,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/protobuf v1.4.2 // indirect
 	github.com/google/go-querystring v0.0.0-20170111101155-53e6ce116135 // indirect
+	github.com/google/uuid v1.1.1
 	github.com/googleapis/gnostic v0.1.0 // indirect
 	github.com/hashicorp/hcl v0.0.0-20171017181929-23c074d0eceb // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
@@ -30,5 +31,5 @@ require (
 	k8s.io/api v0.16.8
 	k8s.io/apimachinery v0.16.8
 	k8s.io/client-go v0.16.8
-	k8s.io/klog v1.0.0 // indirect
+	k8s.io/klog v1.0.0
 )

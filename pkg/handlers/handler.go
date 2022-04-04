@@ -16,11 +16,8 @@ limitations under the License.
 
 package handlers
 
-import (
-	"github.com/CentaurusInfra/quarkcm/pkg/event"
-)
+import "github.com/CentaurusInfra/quarkcm/pkg/objects"
 
 type Handler interface {
-	Init() error
-	Handle(e event.Event)
+	Handle(eventItem objects.EventItem)
 }

@@ -24,8 +24,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/CentaurusInfra/quarkcm/pkg/event"
 	"github.com/CentaurusInfra/quarkcm/pkg/handlers"
+	"github.com/CentaurusInfra/quarkcm/pkg/objects"
 	"github.com/CentaurusInfra/quarkcm/pkg/utils"
 	"k8s.io/klog"
 
@@ -39,13 +39,6 @@ import (
 
 const maxRetries = 5
 
-type EventItem struct {
-	key       string
-	eventType string
-	namespace string
-}
-
-// Controller object
 type Controller struct {
 	resourceType string
 	clientset    kubernetes.Interface
@@ -118,7 +111,7 @@ func (c *Controller) runWorker() {
 
 func (c *Controller) processNextItem() bool {
 	queueItem, quit := c.queue.Get()
-	eventItem := queueItem.(EventItem)
+	eventItem := queueItem.(objects.EventItem)
 
 	if quit {
 		return false
@@ -129,11 +122,11 @@ func (c *Controller) processNextItem() bool {
 		// No error, reset the ratelimit counters
 		c.queue.Forget(queueItem)
 	} else if c.queue.NumRequeues(queueItem) < maxRetries {
-		klog.Errorf("error processing %s (will retry): %v", eventItem.key, err)
+		klog.Errorf("error processing %s (will retry): %v", eventItem.Key, err)
 		c.queue.AddRateLimited(queueItem)
 	} else {
 		// err != nil and too many retries
-		klog.Errorf("error processing %s (giving up): %v", eventItem.key, err)
+		klog.Errorf("error processing %s (giving up): %v", eventItem.Key, err)
 		c.queue.Forget(queueItem)
 		utilruntime.HandleError(err)
 	}
@@ -141,27 +134,20 @@ func (c *Controller) processNextItem() bool {
 	return true
 }
 
-func (c *Controller) processItem(eventItem EventItem) error {
-	obj, _, err := c.informer.GetIndexer().GetByKey(eventItem.key)
+func (c *Controller) processItem(eventItem objects.EventItem) error {
+	obj, _, err := c.informer.GetIndexer().GetByKey(eventItem.Key)
 	if err != nil {
-		return fmt.Errorf("error fetching object with key %s from store: %v", eventItem.key, err)
+		return fmt.Errorf("error fetching object with key %s from store: %v", eventItem.Key, err)
 	}
-	// get object's metedata
-	objectMeta := utils.GetObjectMetaData(obj)
+	eventItem.Obj = obj
 
 	// namespace retrived from event key incase namespace value is empty
-	if eventItem.namespace == "" && strings.Contains(eventItem.key, "/") {
-		substring := strings.Split(eventItem.key, "/")
-		eventItem.namespace = substring[0]
-		eventItem.key = substring[1]
+	if eventItem.Namespace == "" && strings.Contains(eventItem.Key, "/") {
+		substring := strings.Split(eventItem.Key, "/")
+		eventItem.Namespace = substring[0]
+		eventItem.Key = substring[1]
 	}
 
-	kbEvent := event.Event{
-		Name:      objectMeta.Name,
-		Namespace: eventItem.namespace,
-		EventType: eventItem.eventType,
-		Obj:       obj,
-	}
-	c.eventHandler.Handle(kbEvent)
+	c.eventHandler.Handle(eventItem)
 	return nil
 }
