@@ -39,13 +39,10 @@ import (
 
 const maxRetries = 5
 
-var serverStartTime time.Time
-
 type EventItem struct {
-	key          string
-	eventType    string
-	namespace    string
-	resourceType string
+	key       string
+	eventType string
+	namespace string
 }
 
 // Controller object
@@ -91,8 +88,6 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 	defer c.queue.ShutDown()
 
 	klog.Infof("Starting quarkcm %s controller", c.resourceType)
-	serverStartTime = time.Now().Local()
-
 	go c.informer.Run(stopCh)
 
 	if !cache.WaitForCacheSync(stopCh, c.HasSynced) {
@@ -161,35 +156,12 @@ func (c *Controller) processItem(eventItem EventItem) error {
 		eventItem.key = substring[1]
 	}
 
-	// process events based on its type
-	switch eventItem.eventType {
-	case "create":
-		kbEvent := event.Event{
-			Name:      objectMeta.Name,
-			Namespace: eventItem.namespace,
-			Kind:      eventItem.resourceType,
-			Reason:    "Created",
-		}
-		c.eventHandler.Handle(kbEvent)
-		return nil
-	case "update":
-		kbEvent := event.Event{
-			Name:      eventItem.key,
-			Namespace: eventItem.namespace,
-			Kind:      eventItem.resourceType,
-			Reason:    "Updated",
-		}
-		c.eventHandler.Handle(kbEvent)
-		return nil
-	case "delete":
-		kbEvent := event.Event{
-			Name:      eventItem.key,
-			Namespace: eventItem.namespace,
-			Kind:      eventItem.resourceType,
-			Reason:    "Deleted",
-		}
-		c.eventHandler.Handle(kbEvent)
-		return nil
+	kbEvent := event.Event{
+		Name:      objectMeta.Name,
+		Namespace: eventItem.namespace,
+		EventType: eventItem.eventType,
+		Obj:       obj,
 	}
+	c.eventHandler.Handle(kbEvent)
 	return nil
 }

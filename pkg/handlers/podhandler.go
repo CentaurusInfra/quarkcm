@@ -17,6 +17,7 @@ limitations under the License.
 package handlers
 
 import (
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog"
 
 	"github.com/CentaurusInfra/quarkcm/pkg/event"
@@ -29,7 +30,10 @@ func (d *PodHandler) Init() error {
 	return nil
 }
 
-// Handle handles an event.
 func (d *PodHandler) Handle(e event.Event) {
-	klog.Infof("Handle pod event %s", e)
+	d.handleInternal(e, e.Obj.(*v1.Pod))
+}
+
+func (d *PodHandler) handleInternal(e event.Event, pod *v1.Pod) {
+	klog.Infof("Handle pod event %s", pod.Name)
 }

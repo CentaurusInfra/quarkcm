@@ -14,12 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package event
+package constants
 
-// Event represent an event got from k8s api server
-type Event struct {
-	Namespace string
-	EventType string
-	Name      string
-	Obj       interface{}
-}
+const (
+	ResourceType_Pod  string = "pod"
+	ResourceType_Node string = "node"
+
+	EventType_Set    string = "set"
+	EventType_Delete string = "delete"
+)

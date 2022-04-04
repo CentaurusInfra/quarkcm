@@ -17,6 +17,7 @@ limitations under the License.
 package controller
 
 import (
+	"github.com/CentaurusInfra/quarkcm/pkg/constants"
 	"github.com/CentaurusInfra/quarkcm/pkg/handlers"
 	"github.com/CentaurusInfra/quarkcm/pkg/utils"
 	api_v1 "k8s.io/api/core/v1"
@@ -45,7 +46,7 @@ func NewPodController(client kubernetes.Interface) *Controller {
 		0,
 		cache.Indexers{},
 	)
-	return newResourceController(client, eventHandler, informer, "pod")
+	return newResourceController(client, eventHandler, informer, constants.ResourceType_Pod)
 }
 
 func NewNodeController(client kubernetes.Interface) *Controller {
@@ -63,7 +64,7 @@ func NewNodeController(client kubernetes.Interface) *Controller {
 		0,
 		cache.Indexers{},
 	)
-	return newResourceController(client, eventHandler, informer, "node")
+	return newResourceController(client, eventHandler, informer, constants.ResourceType_Node)
 }
 
 func newResourceController(client kubernetes.Interface, eventHandler handlers.Handler, informer cache.SharedIndexInformer, resourceType string) *Controller {
@@ -73,8 +74,7 @@ func newResourceController(client kubernetes.Interface, eventHandler handlers.Ha
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			eventItem.key, err = cache.MetaNamespaceKeyFunc(obj)
-			eventItem.eventType = "create"
-			eventItem.resourceType = resourceType
+			eventItem.eventType = constants.EventType_Set
 			klog.Infof("Processing add to %v: %s", resourceType, eventItem.key)
 			if err == nil {
 				queue.Add(eventItem)
@@ -82,8 +82,7 @@ func newResourceController(client kubernetes.Interface, eventHandler handlers.Ha
 		},
 		UpdateFunc: func(old, new interface{}) {
 			eventItem.key, err = cache.MetaNamespaceKeyFunc(old)
-			eventItem.eventType = "update"
-			eventItem.resourceType = resourceType
+			eventItem.eventType = constants.EventType_Set
 			klog.Infof("Processing update to %v: %s", resourceType, eventItem.key)
 			if err == nil {
 				queue.Add(eventItem)
@@ -91,8 +90,7 @@ func newResourceController(client kubernetes.Interface, eventHandler handlers.Ha
 		},
 		DeleteFunc: func(obj interface{}) {
 			eventItem.key, err = cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-			eventItem.eventType = "delete"
-			eventItem.resourceType = resourceType
+			eventItem.eventType = constants.EventType_Delete
 			eventItem.namespace = utils.GetObjectMetaData(obj).Namespace
 			klog.Infof("Processing delete to %v: %s", resourceType, eventItem.key)
 			if err == nil {
