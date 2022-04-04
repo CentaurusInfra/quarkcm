@@ -45,8 +45,7 @@ const maxRetries = 5
 
 var serverStartTime time.Time
 
-// Event indicate the informerEvent
-type Event struct {
+type EventItem struct {
 	key          string
 	eventType    string
 	namespace    string
@@ -120,35 +119,35 @@ func Start(eventHandler handlers.Handler) {
 
 func newResourceController(client kubernetes.Interface, eventHandler handlers.Handler, informer cache.SharedIndexInformer, resourceType string) *Controller {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	var newEvent Event
+	var eventItem EventItem
 	var err error
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			newEvent.key, err = cache.MetaNamespaceKeyFunc(obj)
-			newEvent.eventType = "create"
-			newEvent.resourceType = resourceType
-			klog.Infof("Processing add to %v: %s", resourceType, newEvent.key)
+			eventItem.key, err = cache.MetaNamespaceKeyFunc(obj)
+			eventItem.eventType = "create"
+			eventItem.resourceType = resourceType
+			klog.Infof("Processing add to %v: %s", resourceType, eventItem.key)
 			if err == nil {
-				queue.Add(newEvent)
+				queue.Add(eventItem)
 			}
 		},
 		UpdateFunc: func(old, new interface{}) {
-			newEvent.key, err = cache.MetaNamespaceKeyFunc(old)
-			newEvent.eventType = "update"
-			newEvent.resourceType = resourceType
-			klog.Infof("Processing update to %v: %s", resourceType, newEvent.key)
+			eventItem.key, err = cache.MetaNamespaceKeyFunc(old)
+			eventItem.eventType = "update"
+			eventItem.resourceType = resourceType
+			klog.Infof("Processing update to %v: %s", resourceType, eventItem.key)
 			if err == nil {
-				queue.Add(newEvent)
+				queue.Add(eventItem)
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
-			newEvent.key, err = cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-			newEvent.eventType = "delete"
-			newEvent.resourceType = resourceType
-			newEvent.namespace = utils.GetObjectMetaData(obj).Namespace
-			klog.Infof("Processing delete to %v: %s", resourceType, newEvent.key)
+			eventItem.key, err = cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+			eventItem.eventType = "delete"
+			eventItem.resourceType = resourceType
+			eventItem.namespace = utils.GetObjectMetaData(obj).Namespace
+			klog.Infof("Processing delete to %v: %s", resourceType, eventItem.key)
 			if err == nil {
-				queue.Add(newEvent)
+				queue.Add(eventItem)
 			}
 		},
 	})
@@ -199,52 +198,53 @@ func (c *Controller) runWorker() {
 }
 
 func (c *Controller) processNextItem() bool {
-	newEvent, quit := c.queue.Get()
+	queueItem, quit := c.queue.Get()
+	eventItem := queueItem.(EventItem)
 
 	if quit {
 		return false
 	}
-	defer c.queue.Done(newEvent)
-	err := c.processItem(newEvent.(Event))
+	defer c.queue.Done(queueItem)
+	err := c.processItem(eventItem)
 	if err == nil {
 		// No error, reset the ratelimit counters
-		c.queue.Forget(newEvent)
-	} else if c.queue.NumRequeues(newEvent) < maxRetries {
-		klog.Errorf("Error processing %s (will retry): %v", newEvent.(Event).key, err)
-		c.queue.AddRateLimited(newEvent)
+		c.queue.Forget(queueItem)
+	} else if c.queue.NumRequeues(queueItem) < maxRetries {
+		klog.Errorf("error processing %s (will retry): %v", eventItem.key, err)
+		c.queue.AddRateLimited(queueItem)
 	} else {
 		// err != nil and too many retries
-		klog.Errorf("Error processing %s (giving up): %v", newEvent.(Event).key, err)
-		c.queue.Forget(newEvent)
+		klog.Errorf("error processing %s (giving up): %v", eventItem.key, err)
+		c.queue.Forget(queueItem)
 		utilruntime.HandleError(err)
 	}
 
 	return true
 }
 
-func (c *Controller) processItem(newEvent Event) error {
-	obj, _, err := c.informer.GetIndexer().GetByKey(newEvent.key)
+func (c *Controller) processItem(eventItem EventItem) error {
+	obj, _, err := c.informer.GetIndexer().GetByKey(eventItem.key)
 	if err != nil {
-		return fmt.Errorf("Error fetching object with key %s from store: %v", newEvent.key, err)
+		return fmt.Errorf("error fetching object with key %s from store: %v", eventItem.key, err)
 	}
 	// get object's metedata
 	objectMeta := utils.GetObjectMetaData(obj)
 
 	// namespace retrived from event key incase namespace value is empty
-	if newEvent.namespace == "" && strings.Contains(newEvent.key, "/") {
-		substring := strings.Split(newEvent.key, "/")
-		newEvent.namespace = substring[0]
-		newEvent.key = substring[1]
+	if eventItem.namespace == "" && strings.Contains(eventItem.key, "/") {
+		substring := strings.Split(eventItem.key, "/")
+		eventItem.namespace = substring[0]
+		eventItem.key = substring[1]
 	}
 
 	// process events based on its type
-	switch newEvent.eventType {
+	switch eventItem.eventType {
 	case "create":
 		if objectMeta.CreationTimestamp.Sub(serverStartTime).Seconds() > 0 {
 			kbEvent := event.Event{
 				Name:      objectMeta.Name,
-				Namespace: newEvent.namespace,
-				Kind:      newEvent.resourceType,
+				Namespace: eventItem.namespace,
+				Kind:      eventItem.resourceType,
 				Reason:    "Created",
 			}
 			c.eventHandler.Handle(kbEvent)
@@ -252,18 +252,18 @@ func (c *Controller) processItem(newEvent Event) error {
 		}
 	case "update":
 		kbEvent := event.Event{
-			Name:      newEvent.key,
-			Namespace: newEvent.namespace,
-			Kind:      newEvent.resourceType,
+			Name:      eventItem.key,
+			Namespace: eventItem.namespace,
+			Kind:      eventItem.resourceType,
 			Reason:    "Updated",
 		}
 		c.eventHandler.Handle(kbEvent)
 		return nil
 	case "delete":
 		kbEvent := event.Event{
-			Name:      newEvent.key,
-			Namespace: newEvent.namespace,
-			Kind:      newEvent.resourceType,
+			Name:      eventItem.key,
+			Namespace: eventItem.namespace,
+			Kind:      eventItem.resourceType,
 			Reason:    "Deleted",
 		}
 		c.eventHandler.Handle(kbEvent)
