@@ -17,6 +17,10 @@ limitations under the License.
 package handlers
 
 import (
+	"fmt"
+
+	"github.com/CentaurusInfra/quarkcm/pkg/constants"
+	"github.com/CentaurusInfra/quarkcm/pkg/datastore"
 	"github.com/CentaurusInfra/quarkcm/pkg/objects"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog"
@@ -30,9 +34,19 @@ func (d *PodHandler) Init() error {
 }
 
 func (d *PodHandler) Handle(eventItem objects.EventItem) {
-	klog.Infof("Handle pod event %s:%s, tracking: %s", eventItem.Key, eventItem.EventType, eventItem.Id)
-	d.handleInternal(eventItem.EventType, eventItem.Obj.(*v1.Pod))
+	klog.Infof("Handle pod event %s:%s. Tracking Id: %s", eventItem.Key, eventItem.EventType, eventItem.Id)
+	podKey := fmt.Sprintf("%s/%s", eventItem.Namespace, eventItem.Key)
+	if eventItem.EventType == constants.EventType_Delete {
+		datastore.DeletePod(podKey, eventItem.Id)
+	} else {
+		handlePodSet(eventItem, podKey, eventItem.Obj.(*v1.Pod))
+	}
 }
 
-func (d *PodHandler) handleInternal(eventType string, pod *v1.Pod) {
+func handlePodSet(eventItem objects.EventItem, key string, pod *v1.Pod) {
+	if len(pod.Spec.NodeName) == 0 || len(pod.Status.PodIP) == 0 {
+		klog.Infof("Handling pod completed. Pod %s is not ready. Tracking Id: %s", eventItem.Key, eventItem.Id)
+		return
+	}
+	datastore.SetPod(key, pod.Status.PodIP, pod.Spec.NodeName, pod.ObjectMeta.ResourceVersion, eventItem.Id)
 }

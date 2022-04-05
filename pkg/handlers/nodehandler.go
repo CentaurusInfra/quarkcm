@@ -17,6 +17,8 @@ limitations under the License.
 package handlers
 
 import (
+	"github.com/CentaurusInfra/quarkcm/pkg/constants"
+	"github.com/CentaurusInfra/quarkcm/pkg/datastore"
 	"github.com/CentaurusInfra/quarkcm/pkg/objects"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog"
@@ -26,9 +28,23 @@ type NodeHandler struct {
 }
 
 func (d *NodeHandler) Handle(eventItem objects.EventItem) {
-	klog.Infof("Handle node event %s:%s, tracking: %s", eventItem.Key, eventItem.EventType, eventItem.Id)
-	d.handleInternal(eventItem.EventType, eventItem.Obj.(*v1.Node))
+	klog.Infof("Handle node event %s:%s. Tracking Id: %s", eventItem.Key, eventItem.EventType, eventItem.Id)
+	if eventItem.EventType == constants.EventType_Delete {
+		datastore.DeleteNode(eventItem.Key, eventItem.Id)
+	} else {
+		handleNodeSet(eventItem, eventItem.Obj.(*v1.Node))
+	}
 }
 
-func (d *NodeHandler) handleInternal(eventType string, node *v1.Node) {
+func handleNodeSet(eventItem objects.EventItem, node *v1.Node) {
+	var hostname string
+	var nodeIP string
+	for _, item := range node.Status.Addresses {
+		if item.Type == "InternalIP" {
+			nodeIP = item.Address
+		} else if item.Type == "Hostname" {
+			hostname = item.Address
+		}
+	}
+	datastore.SetNode(eventItem.Key, hostname, nodeIP, node.ObjectMeta.CreationTimestamp.String(), node.ObjectMeta.ResourceVersion, eventItem.Id)
 }
