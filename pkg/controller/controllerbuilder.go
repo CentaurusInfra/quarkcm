@@ -77,7 +77,7 @@ func newResourceController(client kubernetes.Interface, eventHandler handlers.Ha
 			eventItem.Key, err = cache.MetaNamespaceKeyFunc(obj)
 			eventItem.EventType = constants.EventType_Set
 			eventItem.Id = uuid.New().String()
-			klog.Infof("Processing add to %v: %s tracking: %s", resourceType, eventItem.Key, eventItem.Id)
+			klog.Infof("Processing add to %v: %s. Tracking Id: %s", resourceType, eventItem.Key, eventItem.Id)
 			if err == nil {
 				queue.Add(eventItem)
 			}
@@ -86,7 +86,7 @@ func newResourceController(client kubernetes.Interface, eventHandler handlers.Ha
 			eventItem.Key, err = cache.MetaNamespaceKeyFunc(old)
 			eventItem.EventType = constants.EventType_Set
 			eventItem.Id = uuid.New().String()
-			klog.Infof("Processing update to %v: %s tracking: %s", resourceType, eventItem.Key, eventItem.Id)
+			klog.Infof("Processing update to %v: %s. Tracking Id: %s", resourceType, eventItem.Key, eventItem.Id)
 			if err == nil {
 				queue.Add(eventItem)
 			}
@@ -95,7 +95,7 @@ func newResourceController(client kubernetes.Interface, eventHandler handlers.Ha
 			eventItem.Key, err = cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 			eventItem.EventType = constants.EventType_Delete
 			eventItem.Id = uuid.New().String()
-			klog.Infof("Processing delete to %v: %s tracking: %s", resourceType, eventItem.Key, eventItem.Id)
+			klog.Infof("Processing delete to %v: %s. Tracking Id: %s", resourceType, eventItem.Key, eventItem.Id)
 			if err == nil {
 				queue.Add(eventItem)
 			}

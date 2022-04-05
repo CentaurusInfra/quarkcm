@@ -47,7 +47,6 @@ type Controller struct {
 	eventHandler handlers.Handler
 }
 
-// Start prepares watchers and run their controllers, then waits for process termination signals
 func Start() {
 	var kubeClient kubernetes.Interface
 
@@ -122,11 +121,11 @@ func (c *Controller) processNextItem() bool {
 		// No error, reset the ratelimit counters
 		c.queue.Forget(queueItem)
 	} else if c.queue.NumRequeues(queueItem) < maxRetries {
-		klog.Errorf("error processing %s (will retry): %v", eventItem.Key, err)
+		klog.Errorf("error processing %s (will retry): %v. Tracking Id: %s", eventItem.Key, err, eventItem.Id)
 		c.queue.AddRateLimited(queueItem)
 	} else {
 		// err != nil and too many retries
-		klog.Errorf("error processing %s (giving up): %v", eventItem.Key, err)
+		klog.Errorf("error processing %s (giving up): %v. Tracking Id: %s", eventItem.Key, err, eventItem.Id)
 		c.queue.Forget(queueItem)
 		utilruntime.HandleError(err)
 	}
@@ -137,7 +136,7 @@ func (c *Controller) processNextItem() bool {
 func (c *Controller) processItem(eventItem objects.EventItem) error {
 	obj, _, err := c.informer.GetIndexer().GetByKey(eventItem.Key)
 	if err != nil {
-		return fmt.Errorf("error fetching object with key %s from store: %v", eventItem.Key, err)
+		return fmt.Errorf("error fetching object with key %s from store: %v. Tracking Id: %s", eventItem.Key, err, eventItem.Id)
 	}
 	eventItem.Obj = obj
 
