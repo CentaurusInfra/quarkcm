@@ -20,5 +20,5 @@ type PodObject struct {
 	Key             string
 	IP              string
 	NodeName        string
-	ResourceVersion string
+	ResourceVersion int
 }

@@ -48,5 +48,5 @@ func handlePodSet(eventItem objects.EventItem, key string, pod *v1.Pod) {
 		klog.Infof("Handling pod completed. Pod %s is not ready. Tracking Id: %s", eventItem.Key, eventItem.Id)
 		return
 	}
-	datastore.SetPod(key, pod.Status.PodIP, pod.Spec.NodeName, pod.ObjectMeta.ResourceVersion, eventItem.Id)
+	datastore.SetPod(key, pod.Status.PodIP, pod.Spec.NodeName, eventItem.Id)
 }

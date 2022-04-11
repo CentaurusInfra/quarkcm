@@ -21,5 +21,5 @@ type NodeObject struct {
 	Hostname          string
 	IP                string
 	CreationTimestamp string
-	ResourceVersion   string
+	ResourceVersion   int
 }
