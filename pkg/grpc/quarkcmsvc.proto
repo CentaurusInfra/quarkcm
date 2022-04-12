@@ -14,15 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package client
+syntax = "proto3";
+package quarkcmsvc;
 
-import (
-	"github.com/CentaurusInfra/quarkcm/pkg/controller"
-	"github.com/CentaurusInfra/quarkcm/pkg/grpc"
-)
+option go_package = "pkg/grpc";
 
-// Run runs the event loop processing with given handler
-func Run() {
-	grpc.StartServer()
-	controller.Start()
+service QuarkCMService {
+  // Test
+  rpc TestPing (TestRequestMessage) returns (TestResponseMessage) {}
+}
+
+message TestRequestMessage {
+    string client_name = 1;
+}
+
+message TestResponseMessage {
+    string server_name = 1;
 }

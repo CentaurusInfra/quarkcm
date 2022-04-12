@@ -13,7 +13,7 @@ LDFLAGS       := "-X '$(PKG)/cmd.buildDate=$(BUILD_DATE)'"
 
 default: build test
 
-build:
+build: proto
 	"$(GOCMD)" build ${GOFLAGS} -ldflags ${LDFLAGS} -o "${BINARY}"
 
 docker-image:
@@ -30,3 +30,6 @@ clean-images: stop
 
 clean:
 	"$(GOCMD)" clean -i
+
+proto:
+	protoc --go_out=. --go-grpc_out=. pkg/grpc/quarkcmsvc.proto
