@@ -18,7 +18,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         client_name: name,
     });
     let response = client.test_ping(request).await?;
+    let all_pods = client.list_pod(()).await?;
+    let all_nodes = client.list_node(()).await?;
 
-    println!("{:?}", response);
+    println!("TestPing: {:?}", response);
+    println!("All pods: {:?}", all_pods);
+    println!("All nodes: {:?}", all_nodes);
     Ok(())
 }

@@ -25,7 +25,10 @@ import (
 	"os"
 
 	"google.golang.org/grpc"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	"k8s.io/klog"
+
+	"github.com/CentaurusInfra/quarkcm/pkg/datastore"
 )
 
 var (
@@ -54,4 +57,43 @@ func (s *server) TestPing(ctx context.Context, in *TestRequestMessage) (*TestRes
 	klog.Infof("grpc Service called TestPing %s", inStr)
 	hostname, _ := os.Hostname()
 	return &TestResponseMessage{ServerName: hostname}, nil
+}
+
+func (s *server) ListNode(ctx context.Context, in *emptypb.Empty) (*NodeListMessage, error) {
+	klog.Info("grpc Service called ListNode")
+
+	nodeObjects := datastore.ListNode()
+	length := len(nodeObjects)
+	nodeMessages := make([]*NodeMessage, 0, length)
+	for i := 0; i < length; i++ {
+		nodeObject := nodeObjects[i]
+		nodeMessages = append(nodeMessages, &NodeMessage{
+			Name:              nodeObject.Name,
+			Hostname:          nodeObject.Hostname,
+			Ip:                nodeObject.IP,
+			CreationTimestamp: nodeObject.CreationTimestamp,
+			ResourceVersion:   int32(nodeObject.ResourceVersion),
+		})
+	}
+
+	return &NodeListMessage{Nodes: nodeMessages}, nil
+}
+
+func (s *server) ListPod(ctx context.Context, in *emptypb.Empty) (*PodListMessage, error) {
+	klog.Info("grpc Service called ListPod")
+
+	podObjects := datastore.ListPod()
+	length := len(podObjects)
+	podMessages := make([]*PodMessage, 0, length)
+	for i := 0; i < length; i++ {
+		podObject := podObjects[i]
+		podMessages = append(podMessages, &PodMessage{
+			Key:             podObject.Key,
+			Ip:              podObject.IP,
+			NodeName:        podObject.NodeName,
+			ResourceVersion: int32(podObject.ResourceVersion),
+		})
+	}
+
+	return &PodListMessage{Pods: podMessages}, nil
 }

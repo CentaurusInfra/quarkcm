@@ -16,12 +16,16 @@ limitations under the License.
 
 syntax = "proto3";
 package quarkcmsvc;
+import "google/protobuf/empty.proto";
 
 option go_package = "pkg/grpc";
 
 service QuarkCMService {
   // Test
   rpc TestPing (TestRequestMessage) returns (TestResponseMessage) {}
+
+  rpc ListNode (google.protobuf.Empty) returns (NodeListMessage) {}
+  rpc ListPod (google.protobuf.Empty) returns (PodListMessage) {}
 }
 
 message TestRequestMessage {
@@ -30,4 +34,27 @@ message TestRequestMessage {
 
 message TestResponseMessage {
     string server_name = 1;
+}
+
+message NodeMessage {
+    string name = 1;
+    string hostname = 2;
+    string ip = 3;
+    string creation_timestamp = 4;
+    int32 resource_version = 5;
+}
+
+message NodeListMessage {
+    repeated NodeMessage nodes = 1;
+}
+
+message PodMessage {
+    string key = 1;
+    string ip = 2;
+    string node_name = 3;
+    int32 resource_version = 4;
+}
+
+message PodListMessage {
+    repeated PodMessage pods = 1;
 }

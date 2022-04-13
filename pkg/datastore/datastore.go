@@ -25,9 +25,10 @@ import (
 )
 
 type DataStore struct {
-	ResourceVersion int
-	NodeMap         map[string]*objects.NodeObject // map[node name] => node object
-	PodMap          map[string]*objects.PodObject  // map[key] => pod object
+	NodeResourceVersion int
+	NodeMap             map[string]*objects.NodeObject // map[node name] => node object
+	PodResourceVersion  int
+	PodMap              map[string]*objects.PodObject // map[key] => pod object
 }
 
 var lock = &sync.Mutex{}
@@ -39,21 +40,30 @@ func Instance() *DataStore {
 		defer lock.Unlock()
 		if dataStore == nil {
 			dataStore = &DataStore{
-				ResourceVersion: 0,
-				NodeMap:         map[string]*objects.NodeObject{},
-				PodMap:          map[string]*objects.PodObject{},
+				NodeResourceVersion: 0,
+				NodeMap:             map[string]*objects.NodeObject{},
+				PodResourceVersion:  0,
+				PodMap:              map[string]*objects.PodObject{},
 			}
 		}
 	}
 	return dataStore
 }
 
-func getNextResourceVersion() int {
+func calculateNextNodeResourceVersion() int {
 	instance := Instance()
 	lock.Lock()
 	defer lock.Unlock()
-	instance.ResourceVersion += 1
-	return instance.ResourceVersion
+	instance.NodeResourceVersion += 1
+	return instance.NodeResourceVersion
+}
+
+func calculateNextPodResourceVersion() int {
+	instance := Instance()
+	lock.Lock()
+	defer lock.Unlock()
+	instance.PodResourceVersion += 1
+	return instance.PodResourceVersion
 }
 
 func SetNode(key string, nodeHostname string, nodeIP string, creationTimestamp string, trackingId string) {
@@ -65,7 +75,7 @@ func SetNode(key string, nodeHostname string, nodeIP string, creationTimestamp s
 			node.Hostname = nodeHostname
 			node.IP = nodeIP
 			node.CreationTimestamp = creationTimestamp
-			node.ResourceVersion = getNextResourceVersion()
+			node.ResourceVersion = calculateNextNodeResourceVersion()
 			changed = true
 		} else {
 			klog.Infof("Handling node completed. Node %s is unchanged. Tracking Id: %s", key, trackingId)
@@ -76,7 +86,7 @@ func SetNode(key string, nodeHostname string, nodeIP string, creationTimestamp s
 			Hostname:          nodeHostname,
 			IP:                nodeIP,
 			CreationTimestamp: creationTimestamp,
-			ResourceVersion:   getNextResourceVersion(),
+			ResourceVersion:   calculateNextNodeResourceVersion(),
 		}
 		changed = true
 	}
@@ -95,6 +105,19 @@ func DeleteNode(key string, trackingId string) {
 	}
 }
 
+func ListNode() []objects.NodeObject {
+	maxResourceVersion := Instance().NodeResourceVersion
+	nodeMap := Instance().NodeMap
+
+	var nodes []objects.NodeObject
+	for _, node := range nodeMap {
+		if node.ResourceVersion <= maxResourceVersion {
+			nodes = append(nodes, *node)
+		}
+	}
+	return nodes
+}
+
 func SetPod(key string, podIP string, nodeName string, trackingId string) {
 	podMap := Instance().PodMap
 	pod, exists := podMap[key]
@@ -103,7 +126,7 @@ func SetPod(key string, podIP string, nodeName string, trackingId string) {
 		if pod.IP != podIP || pod.NodeName != nodeName {
 			pod.IP = podIP
 			pod.NodeName = nodeName
-			pod.ResourceVersion = getNextResourceVersion()
+			pod.ResourceVersion = calculateNextPodResourceVersion()
 			changed = true
 		} else {
 			klog.Infof("Handling pod completed. Pod %s is unchanged. Tracking Id: %s", key, trackingId)
@@ -113,7 +136,7 @@ func SetPod(key string, podIP string, nodeName string, trackingId string) {
 			Key:             key,
 			IP:              podIP,
 			NodeName:        nodeName,
-			ResourceVersion: getNextResourceVersion(),
+			ResourceVersion: calculateNextPodResourceVersion(),
 		}
 		changed = true
 	}
@@ -130,4 +153,17 @@ func DeletePod(key string, trackingId string) {
 		delete(podMap, key)
 		klog.Infof("Handling pod completed. Pod %s is deleted. Tracking Id: %s", key, trackingId)
 	}
+}
+
+func ListPod() []objects.PodObject {
+	maxResourceVersion := Instance().PodResourceVersion
+	podMap := Instance().PodMap
+
+	var pods []objects.PodObject
+	for _, pod := range podMap {
+		if pod.ResourceVersion <= maxResourceVersion {
+			pods = append(pods, *pod)
+		}
+	}
+	return pods
 }

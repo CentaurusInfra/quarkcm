@@ -11,6 +11,7 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -24,6 +25,8 @@ const _ = grpc.SupportPackageIsVersion7
 type QuarkCMServiceClient interface {
 	// Test
 	TestPing(ctx context.Context, in *TestRequestMessage, opts ...grpc.CallOption) (*TestResponseMessage, error)
+	ListNode(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*NodeListMessage, error)
+	ListPod(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*PodListMessage, error)
 }
 
 type quarkCMServiceClient struct {
@@ -43,12 +46,32 @@ func (c *quarkCMServiceClient) TestPing(ctx context.Context, in *TestRequestMess
 	return out, nil
 }
 
+func (c *quarkCMServiceClient) ListNode(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*NodeListMessage, error) {
+	out := new(NodeListMessage)
+	err := c.cc.Invoke(ctx, "/quarkcmsvc.QuarkCMService/ListNode", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *quarkCMServiceClient) ListPod(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*PodListMessage, error) {
+	out := new(PodListMessage)
+	err := c.cc.Invoke(ctx, "/quarkcmsvc.QuarkCMService/ListPod", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // QuarkCMServiceServer is the server API for QuarkCMService service.
 // All implementations must embed UnimplementedQuarkCMServiceServer
 // for forward compatibility
 type QuarkCMServiceServer interface {
 	// Test
 	TestPing(context.Context, *TestRequestMessage) (*TestResponseMessage, error)
+	ListNode(context.Context, *emptypb.Empty) (*NodeListMessage, error)
+	ListPod(context.Context, *emptypb.Empty) (*PodListMessage, error)
 	mustEmbedUnimplementedQuarkCMServiceServer()
 }
 
@@ -58,6 +81,12 @@ type UnimplementedQuarkCMServiceServer struct {
 
 func (UnimplementedQuarkCMServiceServer) TestPing(context.Context, *TestRequestMessage) (*TestResponseMessage, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TestPing not implemented")
+}
+func (UnimplementedQuarkCMServiceServer) ListNode(context.Context, *emptypb.Empty) (*NodeListMessage, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListNode not implemented")
+}
+func (UnimplementedQuarkCMServiceServer) ListPod(context.Context, *emptypb.Empty) (*PodListMessage, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListPod not implemented")
 }
 func (UnimplementedQuarkCMServiceServer) mustEmbedUnimplementedQuarkCMServiceServer() {}
 
@@ -90,6 +119,42 @@ func _QuarkCMService_TestPing_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _QuarkCMService_ListNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QuarkCMServiceServer).ListNode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/quarkcmsvc.QuarkCMService/ListNode",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QuarkCMServiceServer).ListNode(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _QuarkCMService_ListPod_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QuarkCMServiceServer).ListPod(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/quarkcmsvc.QuarkCMService/ListPod",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QuarkCMServiceServer).ListPod(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // QuarkCMService_ServiceDesc is the grpc.ServiceDesc for QuarkCMService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -100,6 +165,14 @@ var QuarkCMService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "TestPing",
 			Handler:    _QuarkCMService_TestPing_Handler,
+		},
+		{
+			MethodName: "ListNode",
+			Handler:    _QuarkCMService_ListNode_Handler,
+		},
+		{
+			MethodName: "ListPod",
+			Handler:    _QuarkCMService_ListPod_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
