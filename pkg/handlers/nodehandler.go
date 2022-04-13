@@ -46,5 +46,5 @@ func handleNodeSet(eventItem objects.EventItem, node *v1.Node) {
 			hostname = item.Address
 		}
 	}
-	datastore.SetNode(eventItem.Key, hostname, nodeIP, node.ObjectMeta.CreationTimestamp.Time.String(), eventItem.Id)
+	datastore.SetNode(eventItem.Key, hostname, nodeIP, node.ObjectMeta.CreationTimestamp.Unix(), eventItem.Id)
 }

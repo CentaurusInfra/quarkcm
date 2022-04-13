@@ -40,7 +40,7 @@ message NodeMessage {
     string name = 1;
     string hostname = 2;
     string ip = 3;
-    string creation_timestamp = 4;
+    int64 creation_timestamp = 4;
     int32 resource_version = 5;
 }
 

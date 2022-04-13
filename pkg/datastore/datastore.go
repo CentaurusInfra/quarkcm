@@ -66,7 +66,7 @@ func calculateNextPodResourceVersion() int {
 	return instance.PodResourceVersion
 }
 
-func SetNode(key string, nodeHostname string, nodeIP string, creationTimestamp string, trackingId string) {
+func SetNode(key string, nodeHostname string, nodeIP string, creationTimestamp int64, trackingId string) {
 	nodeMap := Instance().NodeMap
 	node, exists := nodeMap[key]
 	changed := false
