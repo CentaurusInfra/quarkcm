@@ -25,7 +25,9 @@ service QuarkCMService {
   rpc TestPing (TestRequestMessage) returns (TestResponseMessage) {}
 
   rpc ListNode (google.protobuf.Empty) returns (NodeListMessage) {}
+  rpc WatchNode (MaxResourceVersionMessage) returns (stream NodeMessage) {}
   rpc ListPod (google.protobuf.Empty) returns (PodListMessage) {}
+  rpc WatchPod (MaxResourceVersionMessage) returns (stream PodMessage) {}
 }
 
 message TestRequestMessage {
@@ -57,4 +59,8 @@ message PodMessage {
 
 message PodListMessage {
     repeated PodMessage pods = 1;
+}
+
+message MaxResourceVersionMessage {
+    int32 max_resource_version = 1;
 }

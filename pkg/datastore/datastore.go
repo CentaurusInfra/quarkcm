@@ -105,13 +105,13 @@ func DeleteNode(key string, trackingId string) {
 	}
 }
 
-func ListNode() []objects.NodeObject {
+func ListNode(minResourceVersion int) []objects.NodeObject {
 	maxResourceVersion := Instance().NodeResourceVersion
 	nodeMap := Instance().NodeMap
 
 	var nodes []objects.NodeObject
 	for _, node := range nodeMap {
-		if node.ResourceVersion <= maxResourceVersion {
+		if node.ResourceVersion > minResourceVersion && node.ResourceVersion <= maxResourceVersion {
 			nodes = append(nodes, *node)
 		}
 	}
@@ -155,13 +155,13 @@ func DeletePod(key string, trackingId string) {
 	}
 }
 
-func ListPod() []objects.PodObject {
+func ListPod(minResourceVersion int) []objects.PodObject {
 	maxResourceVersion := Instance().PodResourceVersion
 	podMap := Instance().PodMap
 
 	var pods []objects.PodObject
 	for _, pod := range podMap {
-		if pod.ResourceVersion <= maxResourceVersion {
+		if pod.ResourceVersion > minResourceVersion && pod.ResourceVersion <= maxResourceVersion {
 			pods = append(pods, *pod)
 		}
 	}

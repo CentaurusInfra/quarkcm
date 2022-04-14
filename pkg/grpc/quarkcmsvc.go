@@ -62,7 +62,7 @@ func (s *server) TestPing(ctx context.Context, in *TestRequestMessage) (*TestRes
 func (s *server) ListNode(ctx context.Context, in *emptypb.Empty) (*NodeListMessage, error) {
 	klog.Info("grpc Service called ListNode")
 
-	nodeObjects := datastore.ListNode()
+	nodeObjects := datastore.ListNode(0)
 	length := len(nodeObjects)
 	nodeMessages := make([]*NodeMessage, 0, length)
 	for i := 0; i < length; i++ {
@@ -79,10 +79,27 @@ func (s *server) ListNode(ctx context.Context, in *emptypb.Empty) (*NodeListMess
 	return &NodeListMessage{Nodes: nodeMessages}, nil
 }
 
+func (s *server) WatchNode(maxResourceVersionMessage *MaxResourceVersionMessage, stream QuarkCMService_WatchNodeServer) error {
+	nodeObjects := datastore.ListNode(int(maxResourceVersionMessage.MaxResourceVersion))
+	for _, nodeObject := range nodeObjects {
+		nodeMessage := &NodeMessage{
+			Name:              nodeObject.Name,
+			Hostname:          nodeObject.Hostname,
+			Ip:                nodeObject.IP,
+			CreationTimestamp: nodeObject.CreationTimestamp,
+			ResourceVersion:   int32(nodeObject.ResourceVersion),
+		}
+		if err := stream.Send(nodeMessage); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *server) ListPod(ctx context.Context, in *emptypb.Empty) (*PodListMessage, error) {
 	klog.Info("grpc Service called ListPod")
 
-	podObjects := datastore.ListPod()
+	podObjects := datastore.ListPod(0)
 	length := len(podObjects)
 	podMessages := make([]*PodMessage, 0, length)
 	for i := 0; i < length; i++ {
@@ -96,4 +113,20 @@ func (s *server) ListPod(ctx context.Context, in *emptypb.Empty) (*PodListMessag
 	}
 
 	return &PodListMessage{Pods: podMessages}, nil
+}
+
+func (s *server) WatchPod(maxResourceVersionMessage *MaxResourceVersionMessage, stream QuarkCMService_WatchPodServer) error {
+	podObjects := datastore.ListPod(int(maxResourceVersionMessage.MaxResourceVersion))
+	for _, podObject := range podObjects {
+		podMessage := &PodMessage{
+			Key:             podObject.Key,
+			Ip:              podObject.IP,
+			NodeName:        podObject.NodeName,
+			ResourceVersion: int32(podObject.ResourceVersion),
+		}
+		if err := stream.Send(podMessage); err != nil {
+			return err
+		}
+	}
+	return nil
 }

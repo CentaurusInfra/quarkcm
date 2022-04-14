@@ -594,6 +594,7 @@ dependencies = [
  "hostname",
  "prost",
  "tokio",
+ "tokio-stream",
  "tonic",
  "tonic-build",
 ]
