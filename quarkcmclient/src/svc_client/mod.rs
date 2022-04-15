@@ -14,18 +14,4 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// use svc_client::quark_cm_service_client::QuarkCmServiceClient;
-
-// pub mod svc_client{
-//     tonic::include_proto!("quarkcmsvc");
-// }
-
-// pub struct Client {
-//     client: svc_client::quark_cm_service_client::QuarkCmServiceClient<tonic::transport::Channel>
-// }
-
-// impl Client {
-//     pub async fn init() -> Result<(), Box<dyn std::error::Error>> {
-//         let mut client = QuarkCmServiceClient::connect("http://[::1]:51051").await?;
-//     }
-// }
+pub mod client;

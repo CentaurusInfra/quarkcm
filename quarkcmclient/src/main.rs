@@ -13,56 +13,11 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
-use quarkcmsvc::quark_cm_service_client::QuarkCmServiceClient;
-use quarkcmsvc::MaxResourceVersionMessage;
-use quarkcmsvc::TestRequestMessage;
-use tonic::Request;
-
 mod svc_client;
-
-pub mod quarkcmsvc {
-    tonic::include_proto!("quarkcmsvc");
-}
+use svc_client::client::Client;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut client = QuarkCmServiceClient::connect("http://[::1]:51051").await?;
-
-    let mut name = String::new();
-    match hostname::get()?.into_string() {
-        Ok(n) => name = n,
-        _ => {}
-    };
-    let request = tonic::Request::new(TestRequestMessage { client_name: name });
-    let response = client.test_ping(request).await?;
-    let all_pods = client.list_pod(()).await?;
-    let all_nodes = client.list_node(()).await?;
-
-    let mut pod_stream = client
-        .watch_pod(Request::new(MaxResourceVersionMessage {
-            max_resource_version: 0,
-        }))
-        .await?
-        .into_inner();
-
-    while let Some(pod_message) = pod_stream.message().await? {
-        println!("Received Pod {:?}", pod_message);
-    }
-
-    let mut node_stream = client
-        .watch_node(Request::new(MaxResourceVersionMessage {
-            max_resource_version: 0,
-        }))
-        .await?
-        .into_inner();
-
-    while let Some(node_message) = node_stream.message().await? {
-        println!("Received Node {:?}", node_message);
-    }
-
-    println!("TestPing: {:?}", response);
-    println!("All pods: {:?}", all_pods);
-    println!("All nodes: {:?}", all_nodes);
+    Client::init().await?;
     Ok(())
 }
