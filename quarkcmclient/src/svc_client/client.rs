@@ -14,8 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// use svc_client::quark_cm_service_client::QuarkCmServiceClient;
-
 use svc_client::quark_cm_service_client::QuarkCmServiceClient;
 use svc_client::MaxResourceVersionMessage;
 use svc_client::TestRequestMessage;
@@ -26,7 +24,6 @@ pub mod svc_client {
 }
 
 pub struct Client {
-    //client: svc_client::quark_cm_service_client::QuarkCmServiceClient<tonic::transport::Channel>,
 }
 
 impl Client {

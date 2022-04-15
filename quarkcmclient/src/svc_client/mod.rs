@@ -15,3 +15,5 @@ limitations under the License.
 */
 
 pub mod client;
+
+pub mod pod_informer;
