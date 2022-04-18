@@ -19,6 +19,7 @@ use crate::rdma_ctrlconn::*;
 use svc_client::quark_cm_service_client::QuarkCmServiceClient;
 use svc_client::MaxResourceVersionMessage;
 use tonic::Request;
+use tokio::time::*;
 
 pub mod svc_client {
     tonic::include_proto!("quarkcmsvc");
@@ -63,19 +64,35 @@ impl PodInformer {
 
 impl PodInformer {
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let mut client = QuarkCmServiceClient::connect("http://[::1]:51051").await?;
+        loop {
+            let mut client = QuarkCmServiceClient::connect("http://[::1]:51051").await?;
 
-        let mut pod_stream = client
-            .watch_pod(Request::new(MaxResourceVersionMessage {
-                // max_resource_version: self.max_resource_version,
-                max_resource_version: 0,
-            }))
-            .await?
-            .into_inner();
+            let mut pod_stream = client
+                .watch_pod(Request::new(MaxResourceVersionMessage {
+                    max_resource_version: self.max_resource_version,
+                    // max_resource_version: 0,
+                }))
+                .await?
+                .into_inner();
+    
+            while let Some(pod_message) = pod_stream.message().await? {
+                println!("Received Pod {:?}", pod_message);
+            }
 
-        while let Some(pod_message) = pod_stream.message().await? {
-            println!("Received Pod {:?}", pod_message);
+            if *RDMA_CTLINFO.exiting.lock() {
+                break;
+            } else {
+                println!("Wait 1 second for next iteration of watching pod.");
+                sleep(Duration::from_secs(1)).await;
+            }
         }
+        
         Ok(())
+    }
+}
+
+impl PodInformer {
+    fn handle(&mut self) {
+        
     }
 }

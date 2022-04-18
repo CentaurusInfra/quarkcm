@@ -62,17 +62,18 @@ func (s *server) TestPing(ctx context.Context, in *TestRequestMessage) (*TestRes
 func (s *server) ListNode(ctx context.Context, in *emptypb.Empty) (*NodeListMessage, error) {
 	klog.Info("grpc Service called ListNode")
 
-	nodeObjects := datastore.ListNode(0)
-	length := len(nodeObjects)
+	nodeEventObjects := datastore.ListNode(0)
+	length := len(nodeEventObjects)
 	nodeMessages := make([]*NodeMessage, 0, length)
 	for i := 0; i < length; i++ {
-		nodeObject := nodeObjects[i]
+		nodeEventObject := nodeEventObjects[i]
 		nodeMessages = append(nodeMessages, &NodeMessage{
-			Name:              nodeObject.Name,
-			Hostname:          nodeObject.Hostname,
-			Ip:                nodeObject.IP,
-			CreationTimestamp: nodeObject.CreationTimestamp,
-			ResourceVersion:   int32(nodeObject.ResourceVersion),
+			Name:              nodeEventObject.NodeObject.Name,
+			Hostname:          nodeEventObject.NodeObject.Hostname,
+			Ip:                nodeEventObject.NodeObject.IP,
+			CreationTimestamp: nodeEventObject.NodeObject.CreationTimestamp,
+			ResourceVersion:   int32(nodeEventObject.ResourceVersion),
+			EventType:         nodeEventObject.EventType,
 		})
 	}
 
@@ -80,14 +81,15 @@ func (s *server) ListNode(ctx context.Context, in *emptypb.Empty) (*NodeListMess
 }
 
 func (s *server) WatchNode(maxResourceVersionMessage *MaxResourceVersionMessage, stream QuarkCMService_WatchNodeServer) error {
-	nodeObjects := datastore.ListNode(int(maxResourceVersionMessage.MaxResourceVersion))
-	for _, nodeObject := range nodeObjects {
+	nodeEventObjects := datastore.ListNode(int(maxResourceVersionMessage.MaxResourceVersion))
+	for _, nodeEventObject := range nodeEventObjects {
 		nodeMessage := &NodeMessage{
-			Name:              nodeObject.Name,
-			Hostname:          nodeObject.Hostname,
-			Ip:                nodeObject.IP,
-			CreationTimestamp: nodeObject.CreationTimestamp,
-			ResourceVersion:   int32(nodeObject.ResourceVersion),
+			Name:              nodeEventObject.NodeObject.Name,
+			Hostname:          nodeEventObject.NodeObject.Hostname,
+			Ip:                nodeEventObject.NodeObject.IP,
+			CreationTimestamp: nodeEventObject.NodeObject.CreationTimestamp,
+			ResourceVersion:   int32(nodeEventObject.ResourceVersion),
+			EventType:         nodeEventObject.EventType,
 		}
 		if err := stream.Send(nodeMessage); err != nil {
 			return err
@@ -99,16 +101,17 @@ func (s *server) WatchNode(maxResourceVersionMessage *MaxResourceVersionMessage,
 func (s *server) ListPod(ctx context.Context, in *emptypb.Empty) (*PodListMessage, error) {
 	klog.Info("grpc Service called ListPod")
 
-	podObjects := datastore.ListPod(0)
-	length := len(podObjects)
+	podEventObjects := datastore.ListPod(0)
+	length := len(podEventObjects)
 	podMessages := make([]*PodMessage, 0, length)
 	for i := 0; i < length; i++ {
-		podObject := podObjects[i]
+		podEventObject := podEventObjects[i]
 		podMessages = append(podMessages, &PodMessage{
-			Key:             podObject.Key,
-			Ip:              podObject.IP,
-			NodeName:        podObject.NodeName,
-			ResourceVersion: int32(podObject.ResourceVersion),
+			Key:             podEventObject.PodObject.Key,
+			Ip:              podEventObject.PodObject.IP,
+			NodeName:        podEventObject.PodObject.NodeName,
+			ResourceVersion: int32(podEventObject.ResourceVersion),
+			EventType:       podEventObject.EventType,
 		})
 	}
 
@@ -116,13 +119,14 @@ func (s *server) ListPod(ctx context.Context, in *emptypb.Empty) (*PodListMessag
 }
 
 func (s *server) WatchPod(maxResourceVersionMessage *MaxResourceVersionMessage, stream QuarkCMService_WatchPodServer) error {
-	podObjects := datastore.ListPod(int(maxResourceVersionMessage.MaxResourceVersion))
-	for _, podObject := range podObjects {
+	podEventObjects := datastore.ListPod(int(maxResourceVersionMessage.MaxResourceVersion))
+	for _, podEventObject := range podEventObjects {
 		podMessage := &PodMessage{
-			Key:             podObject.Key,
-			Ip:              podObject.IP,
-			NodeName:        podObject.NodeName,
-			ResourceVersion: int32(podObject.ResourceVersion),
+			Key:             podEventObject.PodObject.Key,
+			Ip:              podEventObject.PodObject.IP,
+			NodeName:        podEventObject.PodObject.NodeName,
+			ResourceVersion: int32(podEventObject.ResourceVersion),
+			EventType:       podEventObject.EventType,
 		}
 		if err := stream.Send(podMessage); err != nil {
 			return err

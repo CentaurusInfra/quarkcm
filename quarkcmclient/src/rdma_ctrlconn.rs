@@ -24,6 +24,8 @@ pub struct CtrlInfo {
 
     // pods: pod ip --> Pod
     pub pods: Mutex<HashMap<String, Pod>>,
+
+    pub exiting: Mutex<bool>
 }
 
 impl Default for CtrlInfo {
@@ -31,6 +33,7 @@ impl Default for CtrlInfo {
         return Self {
             nodes: Mutex::<HashMap<String, Node>>::new(HashMap::<String, Node>::new()),
             pods: Mutex::<HashMap<String, Pod>>::new(HashMap::<String, Pod>::new()),
+            exiting: Mutex::<bool>::new(false),
         };
     }
 }

@@ -20,15 +20,18 @@ import (
 	"encoding/json"
 	"sync"
 
+	"github.com/CentaurusInfra/quarkcm/pkg/constants"
 	"github.com/CentaurusInfra/quarkcm/pkg/objects"
 	"k8s.io/klog"
 )
 
 type DataStore struct {
 	NodeResourceVersion int
-	NodeMap             map[string]*objects.NodeObject // map[node name] => node object
+	NodeMap             map[string]*objects.NodeObject   // map[node name] => node object
+	NodeEventMap        map[int]*objects.NodeEventObject // map[resource version] => node event object
 	PodResourceVersion  int
-	PodMap              map[string]*objects.PodObject // map[key] => pod object
+	PodMap              map[string]*objects.PodObject   // map[key] => pod object
+	PodEventMap         map[int]*objects.PodEventObject // map[resource version] => pod event object
 }
 
 var lock = &sync.Mutex{}
@@ -42,8 +45,10 @@ func Instance() *DataStore {
 			dataStore = &DataStore{
 				NodeResourceVersion: 0,
 				NodeMap:             map[string]*objects.NodeObject{},
+				NodeEventMap:        map[int]*objects.NodeEventObject{},
 				PodResourceVersion:  0,
 				PodMap:              map[string]*objects.PodObject{},
+				PodEventMap:         map[int]*objects.PodEventObject{},
 			}
 		}
 	}
@@ -66,56 +71,67 @@ func calculateNextPodResourceVersion() int {
 	return instance.PodResourceVersion
 }
 
-func SetNode(key string, nodeHostname string, nodeIP string, creationTimestamp int64, trackingId string) {
+func SetNode(name string, nodeHostname string, nodeIP string, creationTimestamp int64, trackingId string) {
 	nodeMap := Instance().NodeMap
-	node, exists := nodeMap[key]
+	node, exists := nodeMap[name]
 	changed := false
 	if exists {
 		if node.Hostname != nodeHostname || node.IP != nodeIP {
-			node.Hostname = nodeHostname
-			node.IP = nodeIP
-			node.CreationTimestamp = creationTimestamp
-			node.ResourceVersion = calculateNextNodeResourceVersion()
 			changed = true
 		} else {
-			klog.Infof("Handling node completed. Node %s is unchanged. Tracking Id: %s", key, trackingId)
+			klog.Infof("Handling node completed. Node %s is unchanged. Tracking Id: %s", name, trackingId)
 		}
 	} else {
-		nodeMap[key] = &objects.NodeObject{
-			Name:              key,
+		changed = true
+	}
+
+	if changed {
+		resourceVersion := calculateNextNodeResourceVersion()
+		newNode := &objects.NodeObject{
+			Name:              name,
 			Hostname:          nodeHostname,
 			IP:                nodeIP,
 			CreationTimestamp: creationTimestamp,
-			ResourceVersion:   calculateNextNodeResourceVersion(),
+			ResourceVersion:   resourceVersion,
 		}
-		changed = true
-	}
-	if changed {
-		nodeStr, _ := json.Marshal(nodeMap[key])
+		newNodeEvent := &objects.NodeEventObject{
+			ResourceVersion: resourceVersion,
+			EventType:       constants.EventType_Set,
+			NodeObject:      *newNode,
+		}
+		nodeMap[name] = newNode
+		Instance().NodeEventMap[resourceVersion] = newNodeEvent
+
+		nodeStr, _ := json.Marshal(nodeMap[name])
 		klog.Infof("Handling node completed. Node set as %s. Tracking Id: %s", nodeStr, trackingId)
 	}
 }
 
-func DeleteNode(key string, trackingId string) {
+func DeleteNode(name string, trackingId string) {
 	nodeMap := Instance().NodeMap
-	_, exists := nodeMap[key]
+	node, exists := nodeMap[name]
 	if exists {
-		delete(nodeMap, key)
-		klog.Infof("Handling node completed. Node %s is deleted. Tracking Id: %s", key, trackingId)
+		resourceVersion := calculateNextNodeResourceVersion()
+		newNodeEvent := &objects.NodeEventObject{
+			ResourceVersion: resourceVersion,
+			EventType:       constants.EventType_Delete,
+			NodeObject:      *node,
+		}
+		Instance().NodeEventMap[resourceVersion] = newNodeEvent
+		delete(nodeMap, name)
+		klog.Infof("Handling node completed. Node %s is deleted. Tracking Id: %s", name, trackingId)
 	}
 }
 
-func ListNode(minResourceVersion int) []objects.NodeObject {
+func ListNode(minResourceVersion int) []objects.NodeEventObject {
 	maxResourceVersion := Instance().NodeResourceVersion
-	nodeMap := Instance().NodeMap
+	nodeEventMap := Instance().NodeEventMap
 
-	var nodes []objects.NodeObject
-	for _, node := range nodeMap {
-		if node.ResourceVersion > minResourceVersion && node.ResourceVersion <= maxResourceVersion {
-			nodes = append(nodes, *node)
-		}
+	var nodeEvents []objects.NodeEventObject
+	for i := minResourceVersion + 1; i <= maxResourceVersion; i++ {
+		nodeEvents = append(nodeEvents, *nodeEventMap[i])
 	}
-	return nodes
+	return nodeEvents
 }
 
 func SetPod(key string, podIP string, nodeName string, trackingId string) {
@@ -124,23 +140,30 @@ func SetPod(key string, podIP string, nodeName string, trackingId string) {
 	changed := false
 	if exists {
 		if pod.IP != podIP || pod.NodeName != nodeName {
-			pod.IP = podIP
-			pod.NodeName = nodeName
-			pod.ResourceVersion = calculateNextPodResourceVersion()
 			changed = true
 		} else {
 			klog.Infof("Handling pod completed. Pod %s is unchanged. Tracking Id: %s", key, trackingId)
 		}
 	} else {
-		podMap[key] = &objects.PodObject{
+		changed = true
+	}
+
+	if changed {
+		resourceVersion := calculateNextPodResourceVersion()
+		newPod := &objects.PodObject{
 			Key:             key,
 			IP:              podIP,
 			NodeName:        nodeName,
-			ResourceVersion: calculateNextPodResourceVersion(),
+			ResourceVersion: resourceVersion,
 		}
-		changed = true
-	}
-	if changed {
+		newPodEvent := &objects.PodEventObject{
+			ResourceVersion: resourceVersion,
+			EventType:       constants.EventType_Set,
+			PodObject:       *newPod,
+		}
+		podMap[key] = newPod
+		Instance().PodEventMap[resourceVersion] = newPodEvent
+
 		podStr, _ := json.Marshal(podMap[key])
 		klog.Infof("Handling pod completed. Pod set as %s. Tracking Id: %s", podStr, trackingId)
 	}
@@ -148,22 +171,27 @@ func SetPod(key string, podIP string, nodeName string, trackingId string) {
 
 func DeletePod(key string, trackingId string) {
 	podMap := Instance().PodMap
-	_, exists := podMap[key]
+	pod, exists := podMap[key]
 	if exists {
+		resourceVersion := calculateNextPodResourceVersion()
+		newPodEvent := &objects.PodEventObject{
+			ResourceVersion: resourceVersion,
+			EventType:       constants.EventType_Delete,
+			PodObject:       *pod,
+		}
+		Instance().PodEventMap[resourceVersion] = newPodEvent
 		delete(podMap, key)
 		klog.Infof("Handling pod completed. Pod %s is deleted. Tracking Id: %s", key, trackingId)
 	}
 }
 
-func ListPod(minResourceVersion int) []objects.PodObject {
+func ListPod(minResourceVersion int) []objects.PodEventObject {
 	maxResourceVersion := Instance().PodResourceVersion
-	podMap := Instance().PodMap
+	podEventMap := Instance().PodEventMap
 
-	var pods []objects.PodObject
-	for _, pod := range podMap {
-		if pod.ResourceVersion > minResourceVersion && pod.ResourceVersion <= maxResourceVersion {
-			pods = append(pods, *pod)
-		}
+	var podEvents []objects.PodEventObject
+	for i := minResourceVersion + 1; i <= maxResourceVersion; i++ {
+		podEvents = append(podEvents, *podEventMap[i])
 	}
-	return pods
+	return podEvents
 }
