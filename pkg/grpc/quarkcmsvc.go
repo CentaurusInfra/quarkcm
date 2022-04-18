@@ -18,6 +18,7 @@ package grpc
 
 import (
 	context "context"
+	"encoding/binary"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -70,7 +71,7 @@ func (s *server) ListNode(ctx context.Context, in *emptypb.Empty) (*NodeListMess
 		nodeMessages = append(nodeMessages, &NodeMessage{
 			Name:              nodeEventObject.NodeObject.Name,
 			Hostname:          nodeEventObject.NodeObject.Hostname,
-			Ip:                nodeEventObject.NodeObject.IP,
+			Ip:                convertIP(nodeEventObject.NodeObject.IP),
 			CreationTimestamp: nodeEventObject.NodeObject.CreationTimestamp,
 			ResourceVersion:   int32(nodeEventObject.ResourceVersion),
 			EventType:         nodeEventObject.EventType,
@@ -86,7 +87,7 @@ func (s *server) WatchNode(maxResourceVersionMessage *MaxResourceVersionMessage,
 		nodeMessage := &NodeMessage{
 			Name:              nodeEventObject.NodeObject.Name,
 			Hostname:          nodeEventObject.NodeObject.Hostname,
-			Ip:                nodeEventObject.NodeObject.IP,
+			Ip:                convertIP(nodeEventObject.NodeObject.IP),
 			CreationTimestamp: nodeEventObject.NodeObject.CreationTimestamp,
 			ResourceVersion:   int32(nodeEventObject.ResourceVersion),
 			EventType:         nodeEventObject.EventType,
@@ -108,7 +109,7 @@ func (s *server) ListPod(ctx context.Context, in *emptypb.Empty) (*PodListMessag
 		podEventObject := podEventObjects[i]
 		podMessages = append(podMessages, &PodMessage{
 			Key:             podEventObject.PodObject.Key,
-			Ip:              podEventObject.PodObject.IP,
+			Ip:              convertIP(podEventObject.PodObject.IP),
 			NodeName:        podEventObject.PodObject.NodeName,
 			ResourceVersion: int32(podEventObject.ResourceVersion),
 			EventType:       podEventObject.EventType,
@@ -123,7 +124,7 @@ func (s *server) WatchPod(maxResourceVersionMessage *MaxResourceVersionMessage, 
 	for _, podEventObject := range podEventObjects {
 		podMessage := &PodMessage{
 			Key:             podEventObject.PodObject.Key,
-			Ip:              podEventObject.PodObject.IP,
+			Ip:              convertIP(podEventObject.PodObject.IP),
 			NodeName:        podEventObject.PodObject.NodeName,
 			ResourceVersion: int32(podEventObject.ResourceVersion),
 			EventType:       podEventObject.EventType,
@@ -133,4 +134,8 @@ func (s *server) WatchPod(maxResourceVersionMessage *MaxResourceVersionMessage, 
 		}
 	}
 	return nil
+}
+
+func convertIP(ip string) uint32 {
+	return binary.BigEndian.Uint32(net.ParseIP(ip).To4())
 }

@@ -20,10 +20,10 @@ use std::collections::HashMap;
 #[derive(Debug)]
 pub struct CtrlInfo {
     // nodes: node ip --> Node
-    pub nodes: Mutex<HashMap<String, Node>>,
+    pub nodes: Mutex<HashMap<u32, Node>>,
 
     // pods: pod ip --> Pod
-    pub pods: Mutex<HashMap<String, Pod>>,
+    pub pods: Mutex<HashMap<u32, Pod>>,
 
     pub exiting: Mutex<bool>
 }
@@ -31,8 +31,8 @@ pub struct CtrlInfo {
 impl Default for CtrlInfo {
     fn default() -> Self {
         return Self {
-            nodes: Mutex::<HashMap<String, Node>>::new(HashMap::<String, Node>::new()),
-            pods: Mutex::<HashMap<String, Pod>>::new(HashMap::<String, Pod>::new()),
+            nodes: Mutex::<HashMap<u32, Node>>::new(HashMap::<u32, Node>::new()),
+            pods: Mutex::<HashMap<u32, Pod>>::new(HashMap::<u32, Pod>::new()),
             exiting: Mutex::<bool>::new(false),
         };
     }
@@ -42,7 +42,7 @@ impl Default for CtrlInfo {
 pub struct Node {
     pub name: String,
     pub hostname: String,
-    pub ip: String,
+    pub ip: u32,
     pub timestamp: i64,
     pub resource_version: i32,
 }
@@ -50,7 +50,7 @@ pub struct Node {
 #[derive(Debug)]
 pub struct Pod {
     pub key: String,
-    pub ip: String,
+    pub ip: u32,
     pub node_name: String,
     pub resource_version: i32,
 }

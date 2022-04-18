@@ -46,11 +46,11 @@ impl PodInformer {
             for pod_message in pods_message {
                 let pod = Pod {
                     key: pod_message.key.clone(),
-                    ip: pod_message.ip.clone(),
+                    ip: pod_message.ip,
                     node_name: pod_message.node_name.clone(),
                     resource_version: pod_message.resource_version,
                 };
-                pods_map.insert(pod_message.ip.clone(), pod);
+                pods_map.insert(pod_message.ip, pod);
                 if pod_message.resource_version > informer.max_resource_version {
                     informer.max_resource_version = pod_message.resource_version;
                 }
@@ -94,16 +94,16 @@ impl PodInformer {
 
 impl PodInformer {
     fn handle(&mut self, pod_message: PodMessage) {
-        let ip = pod_message.ip.clone(); // todo change ip to int, then don't need these clone
+        let ip = pod_message.ip;
         if pod_message.event_type == EVENT_TYPE_SET {
             let pod = Pod {
                 key: pod_message.key.clone(),
-                ip: ip.clone(),
+                ip: ip,
                 node_name: pod_message.node_name.clone(),
                 resource_version: pod_message.resource_version,
             };
             let mut pods_map = RDMA_CTLINFO.pods.lock();
-            pods_map.insert(ip.clone(), pod);
+            pods_map.insert(ip, pod);
             if pod_message.resource_version > self.max_resource_version {
                 self.max_resource_version = pod_message.resource_version;
             }

@@ -41,7 +41,7 @@ message TestResponseMessage {
 message NodeMessage {
     string name = 1;
     string hostname = 2;
-    string ip = 3;
+    uint32 ip = 3;
     int64 creation_timestamp = 4;
     int32 resource_version = 5;
     string event_type = 6;
@@ -53,7 +53,7 @@ message NodeListMessage {
 
 message PodMessage {
     string key = 1;
-    string ip = 2;
+    uint32 ip = 2;
     string node_name = 3;
     int32 resource_version = 4;
     string event_type = 5;
