@@ -14,10 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-use super::super::RDMA_CTLINFO;
+use crate::RDMA_CTLINFO;
+use crate::constants::*;
 use crate::rdma_ctrlconn::*;
 use svc_client::quark_cm_service_client::QuarkCmServiceClient;
 use svc_client::MaxResourceVersionMessage;
+use svc_client::PodMessage;
 use tonic::Request;
 use tokio::time::*;
 
@@ -38,7 +40,6 @@ impl PodInformer {
         let mut client = QuarkCmServiceClient::connect("http://[::1]:51051").await?;
 
         let ref pods_message = client.list_pod(()).await?.into_inner().pods;
-        println!("All pods: {:#?}", pods_message);
         if pods_message.len() > 0 {
             let mut pods_map = RDMA_CTLINFO.pods.lock();
 
@@ -92,7 +93,22 @@ impl PodInformer {
 }
 
 impl PodInformer {
-    fn handle(&mut self) {
-        
+    fn handle(&mut self, pod_message: PodMessage) {
+        let ip = pod_message.ip.clone(); // todo change ip to int, then don't need these clone
+        if pod_message.event_type == EVENT_TYPE_SET {
+            let pod = Pod {
+                key: pod_message.key.clone(),
+                ip: ip.clone(),
+                node_name: pod_message.node_name.clone(),
+                resource_version: pod_message.resource_version,
+            };
+            let mut pods_map = RDMA_CTLINFO.pods.lock();
+            pods_map.insert(ip.clone(), pod);
+            if pod_message.resource_version > self.max_resource_version {
+                self.max_resource_version = pod_message.resource_version;
+            }
+        } else if pod_message.event_type == EVENT_TYPE_DELETE {
+
+        }
     }
 }

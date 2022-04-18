@@ -15,6 +15,7 @@ limitations under the License.
 */
 
 pub mod rdma_ctrlconn;
+pub mod constants;
 
 mod svc_client;
 //use svc_client::client::Client;
