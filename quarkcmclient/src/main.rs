@@ -21,6 +21,7 @@ mod svc_client;
 //use svc_client::client::Client;
 use crate::rdma_ctrlconn::*;
 use svc_client::pod_informer::PodInformer;
+use svc_client::node_informer::NodeInformer;
 
 use lazy_static::lazy_static;
 
@@ -30,25 +31,26 @@ lazy_static! {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    //Client::init().await?;
-    //PodInformer::run().await?;
 
     let mut pod_informer = PodInformer::new().await?;
-    tokio::join!(
+    let mut node_informer = NodeInformer::new().await?;
+    // tokio::join!(
+    //     pod_informer.run(),
+    //     node_informer.run(),
+    // );
+    let (pod_informer_result, node_informer_result) = tokio::join!(
         pod_informer.run(),
-        sleep_then_print(1),
-        sleep_then_print(2),
+        node_informer.run(),
     );
-    //pod_informer.run().await?;
-    println!("ok");
+    match pod_informer_result {        
+        Err(e) => println!("Pod informer error: {:?}", e),
+        _ => (),
+    }
+    match node_informer_result {        
+        Err(e) => println!("Node informer error: {:?}", e),
+        _ => (),
+    }
+    
+    println!("Exit!");
     Ok(())
-}
-
-async fn sleep_then_print(timer: i32) {
-    println!("Start timer {}.", timer);
-
-    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-//                                            ^ execution can be paused here
-
-    println!("Timer {} done.", timer);
 }

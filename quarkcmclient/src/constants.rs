@@ -22,3 +22,5 @@ limitations under the License.
 
 pub const EVENT_TYPE_SET: &str = "set";
 pub const EVENT_TYPE_DELETE: &str = "delete";
+
+pub const GRPC_SERVER_ADDRESS: &str = "http://[::1]:51051";
