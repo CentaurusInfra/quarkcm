@@ -25,11 +25,14 @@ import (
 	"net"
 	"os"
 
+	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 
 	"github.com/CentaurusInfra/quarkcm/pkg/datastore"
+	"github.com/CentaurusInfra/quarkcm/pkg/objects"
 )
 
 var (
@@ -82,19 +85,65 @@ func (s *server) ListNode(ctx context.Context, in *emptypb.Empty) (*NodeListMess
 }
 
 func (s *server) WatchNode(maxResourceVersionMessage *MaxResourceVersionMessage, stream QuarkCMService_WatchNodeServer) error {
+	klog.Info("grpc Service called WatchNode")
+
+	key := uuid.New()
+	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	defer queue.ShutDown()
+	datastore.AddNodeQueue(key, queue)
+	defer datastore.RemoveNodeQueue(key)
+
 	nodeEventObjects := datastore.ListNode(int(maxResourceVersionMessage.MaxResourceVersion))
 	for _, nodeEventObject := range nodeEventObjects {
-		nodeMessage := &NodeMessage{
-			Name:              nodeEventObject.NodeObject.Name,
-			Hostname:          nodeEventObject.NodeObject.Hostname,
-			Ip:                convertIP(nodeEventObject.NodeObject.IP),
-			CreationTimestamp: nodeEventObject.NodeObject.CreationTimestamp,
-			ResourceVersion:   int32(nodeEventObject.ResourceVersion),
-			EventType:         nodeEventObject.EventType,
-		}
-		if err := stream.Send(nodeMessage); err != nil {
+		if err := sendNodeStream(stream, &nodeEventObject); err != nil {
 			return err
 		}
+	}
+
+	for {
+		exit, err := processNextNode(queue, stream)
+		if exit {
+			break
+		}
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func processNextNode(queue workqueue.RateLimitingInterface, stream QuarkCMService_WatchNodeServer) (bool, error) {
+	nodeEventObject, exit := dequeueNode(queue)
+	if exit {
+		return exit, nil
+	}
+	return exit, sendNodeStream(stream, nodeEventObject)
+}
+
+func dequeueNode(queue workqueue.RateLimitingInterface) (*objects.NodeEventObject, bool) {
+	queueItem, exit := queue.Get()
+	if exit {
+		return nil, exit
+	}
+	nodeEventObject := queueItem.(objects.NodeEventObject)
+	queue.Forget(queueItem)
+	// defer queue.Done(queueItem)
+	queue.Done(queueItem)
+	return &nodeEventObject, exit
+}
+
+func sendNodeStream(stream QuarkCMService_WatchNodeServer, nodeEventObject *objects.NodeEventObject) error {
+	nodeMessage := &NodeMessage{
+		Name:              nodeEventObject.NodeObject.Name,
+		Hostname:          nodeEventObject.NodeObject.Hostname,
+		Ip:                convertIP(nodeEventObject.NodeObject.IP),
+		CreationTimestamp: nodeEventObject.NodeObject.CreationTimestamp,
+		ResourceVersion:   int32(nodeEventObject.ResourceVersion),
+		EventType:         nodeEventObject.EventType,
+	}
+	if err := stream.Send(nodeMessage); err != nil {
+		return err
 	}
 	return nil
 }
@@ -120,18 +169,64 @@ func (s *server) ListPod(ctx context.Context, in *emptypb.Empty) (*PodListMessag
 }
 
 func (s *server) WatchPod(maxResourceVersionMessage *MaxResourceVersionMessage, stream QuarkCMService_WatchPodServer) error {
+	klog.Info("grpc Service called WatchPod")
+
+	key := uuid.New()
+	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	defer queue.ShutDown()
+	datastore.AddPodQueue(key, queue)
+	defer datastore.RemovePodQueue(key)
+
 	podEventObjects := datastore.ListPod(int(maxResourceVersionMessage.MaxResourceVersion))
 	for _, podEventObject := range podEventObjects {
-		podMessage := &PodMessage{
-			Key:             podEventObject.PodObject.Key,
-			Ip:              convertIP(podEventObject.PodObject.IP),
-			NodeName:        podEventObject.PodObject.NodeName,
-			ResourceVersion: int32(podEventObject.ResourceVersion),
-			EventType:       podEventObject.EventType,
-		}
-		if err := stream.Send(podMessage); err != nil {
+		if err := sendPodStream(stream, &podEventObject); err != nil {
 			return err
 		}
+	}
+
+	for {
+		exit, err := processNextPod(queue, stream)
+		if exit {
+			break
+		}
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func processNextPod(queue workqueue.RateLimitingInterface, stream QuarkCMService_WatchPodServer) (bool, error) {
+	podEventObject, exit := dequeuePod(queue)
+	if exit {
+		return exit, nil
+	}
+	return exit, sendPodStream(stream, podEventObject)
+}
+
+func dequeuePod(queue workqueue.RateLimitingInterface) (*objects.PodEventObject, bool) {
+	queueItem, exit := queue.Get()
+	if exit {
+		return nil, exit
+	}
+	podEventObject := queueItem.(objects.PodEventObject)
+	queue.Forget(queueItem)
+	// defer queue.Done(queueItem)
+	queue.Done(queueItem)
+	return &podEventObject, exit
+}
+
+func sendPodStream(stream QuarkCMService_WatchPodServer, podEventObject *objects.PodEventObject) error {
+	podMessage := &PodMessage{
+		Key:             podEventObject.PodObject.Key,
+		Ip:              convertIP(podEventObject.PodObject.IP),
+		NodeName:        podEventObject.PodObject.NodeName,
+		ResourceVersion: int32(podEventObject.ResourceVersion),
+		EventType:       podEventObject.EventType,
+	}
+	if err := stream.Send(podMessage); err != nil {
+		return err
 	}
 	return nil
 }

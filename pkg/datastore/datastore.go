@@ -22,16 +22,21 @@ import (
 
 	"github.com/CentaurusInfra/quarkcm/pkg/constants"
 	"github.com/CentaurusInfra/quarkcm/pkg/objects"
+	"github.com/google/uuid"
+	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 )
 
 type DataStore struct {
 	NodeResourceVersion int
-	NodeMap             map[string]*objects.NodeObject   // map[node name] => node object
-	NodeEventMap        map[int]*objects.NodeEventObject // map[resource version] => node event object
-	PodResourceVersion  int
-	PodMap              map[string]*objects.PodObject   // map[key] => pod object
-	PodEventMap         map[int]*objects.PodEventObject // map[resource version] => pod event object
+	NodeMap             map[string]*objects.NodeObject                // map[node name] => node object
+	NodeEventMap        map[int]*objects.NodeEventObject              // map[resource version] => node event object
+	NodeQueueMap        map[uuid.UUID]workqueue.RateLimitingInterface // map[guid] => node queue
+
+	PodResourceVersion int
+	PodMap             map[string]*objects.PodObject                 // map[key] => pod object
+	PodEventMap        map[int]*objects.PodEventObject               // map[resource version] => pod event object
+	PodQueueMap        map[uuid.UUID]workqueue.RateLimitingInterface // map[guid] => pod queue
 }
 
 var lock = &sync.Mutex{}
@@ -46,9 +51,12 @@ func Instance() *DataStore {
 				NodeResourceVersion: 0,
 				NodeMap:             map[string]*objects.NodeObject{},
 				NodeEventMap:        map[int]*objects.NodeEventObject{},
-				PodResourceVersion:  0,
-				PodMap:              map[string]*objects.PodObject{},
-				PodEventMap:         map[int]*objects.PodEventObject{},
+				NodeQueueMap:        map[uuid.UUID]workqueue.RateLimitingInterface{},
+
+				PodResourceVersion: 0,
+				PodMap:             map[string]*objects.PodObject{},
+				PodEventMap:        map[int]*objects.PodEventObject{},
+				PodQueueMap:        map[uuid.UUID]workqueue.RateLimitingInterface{},
 			}
 		}
 	}
@@ -101,6 +109,7 @@ func SetNode(name string, nodeHostname string, nodeIP string, creationTimestamp 
 		}
 		nodeMap[name] = newNode
 		Instance().NodeEventMap[resourceVersion] = newNodeEvent
+		EnqueueNode(*newNodeEvent)
 
 		nodeStr, _ := json.Marshal(nodeMap[name])
 		klog.Infof("Handling node completed. Node set as %s. Tracking Id: %s", nodeStr, trackingId)
@@ -118,6 +127,7 @@ func DeleteNode(name string, trackingId string) {
 			NodeObject:      *node,
 		}
 		Instance().NodeEventMap[resourceVersion] = newNodeEvent
+		EnqueueNode(*newNodeEvent)
 		delete(nodeMap, name)
 		klog.Infof("Handling node completed. Node %s is deleted. Tracking Id: %s", name, trackingId)
 	}
@@ -132,6 +142,20 @@ func ListNode(minResourceVersion int) []objects.NodeEventObject {
 		nodeEvents = append(nodeEvents, *nodeEventMap[i])
 	}
 	return nodeEvents
+}
+
+func EnqueueNode(nodeEventObject objects.NodeEventObject) {
+	for _, queue := range Instance().NodeQueueMap {
+		queue.Add(nodeEventObject)
+	}
+}
+
+func AddNodeQueue(key uuid.UUID, queue workqueue.RateLimitingInterface) {
+	Instance().NodeQueueMap[key] = queue
+}
+
+func RemoveNodeQueue(key uuid.UUID) {
+	delete(Instance().NodeQueueMap, key)
 }
 
 func SetPod(key string, podIP string, nodeName string, trackingId string) {
@@ -163,6 +187,7 @@ func SetPod(key string, podIP string, nodeName string, trackingId string) {
 		}
 		podMap[key] = newPod
 		Instance().PodEventMap[resourceVersion] = newPodEvent
+		EnqueuePod(*newPodEvent)
 
 		podStr, _ := json.Marshal(podMap[key])
 		klog.Infof("Handling pod completed. Pod set as %s. Tracking Id: %s", podStr, trackingId)
@@ -180,6 +205,7 @@ func DeletePod(key string, trackingId string) {
 			PodObject:       *pod,
 		}
 		Instance().PodEventMap[resourceVersion] = newPodEvent
+		EnqueuePod(*newPodEvent)
 		delete(podMap, key)
 		klog.Infof("Handling pod completed. Pod %s is deleted. Tracking Id: %s", key, trackingId)
 	}
@@ -194,4 +220,18 @@ func ListPod(minResourceVersion int) []objects.PodEventObject {
 		podEvents = append(podEvents, *podEventMap[i])
 	}
 	return podEvents
+}
+
+func EnqueuePod(podEventObject objects.PodEventObject) {
+	for _, queue := range Instance().PodQueueMap {
+		queue.Add(podEventObject)
+	}
+}
+
+func AddPodQueue(key uuid.UUID, queue workqueue.RateLimitingInterface) {
+	Instance().PodQueueMap[key] = queue
+}
+
+func RemovePodQueue(key uuid.UUID) {
+	delete(Instance().PodQueueMap, key)
 }
