@@ -14,14 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-use crate::RDMA_CTLINFO;
 use crate::constants::*;
 use crate::rdma_ctrlconn::*;
+use crate::RDMA_CTLINFO;
 use svc_client::quark_cm_service_client::QuarkCmServiceClient;
 use svc_client::MaxResourceVersionMessage;
 use svc_client::PodMessage;
-use tonic::Request;
 use tokio::time::*;
+use tonic::Request;
 
 pub mod svc_client {
     tonic::include_proto!("quarkcmsvc");
@@ -52,18 +52,12 @@ impl PodInformer {
 
 impl PodInformer {
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let mut client = QuarkCmServiceClient::connect(GRPC_SERVER_ADDRESS).await?;
-        loop {            
-            let mut pod_stream = client
-                .watch_pod(Request::new(MaxResourceVersionMessage {
-                    max_resource_version: self.max_resource_version,
-                    // max_resource_version: 0,
-                }))
-                .await?
-                .into_inner();
-    
-            while let Some(pod_message) = pod_stream.message().await? {
-                self.handle(&pod_message);
+        loop {
+            match self.run_watch().await {
+                Ok(_) => {}
+                Err(e) => {
+                    println!("Pod watch error: {:?}", e);
+                }
             }
 
             if *RDMA_CTLINFO.exiting.lock() {
@@ -74,12 +68,25 @@ impl PodInformer {
                 sleep(Duration::from_secs(1)).await;
             }
         }
-        
         Ok(())
     }
-}
 
-impl PodInformer {
+    async fn run_watch(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let mut client = QuarkCmServiceClient::connect(GRPC_SERVER_ADDRESS).await?;
+        let mut pod_stream = client
+            .watch_pod(Request::new(MaxResourceVersionMessage {
+                max_resource_version: self.max_resource_version,
+                // max_resource_version: 0,
+            }))
+            .await?
+            .into_inner();
+
+        while let Some(pod_message) = pod_stream.message().await? {
+            self.handle(&pod_message);
+        }
+        Ok(())
+    }
+
     fn handle(&mut self, pod_message: &PodMessage) {
         let ip = pod_message.ip;
         let mut pods_map = RDMA_CTLINFO.pods.lock();
@@ -90,7 +97,6 @@ impl PodInformer {
                 node_name: pod_message.node_name.clone(),
                 resource_version: pod_message.resource_version,
             };
-            
             pods_map.insert(ip, pod);
             if pod_message.resource_version > self.max_resource_version {
                 self.max_resource_version = pod_message.resource_version;
@@ -99,8 +105,8 @@ impl PodInformer {
             if pods_map.contains_key(&ip) {
                 if pods_map[&ip].resource_version < pod_message.resource_version {
                     pods_map.remove(&ip);
-                }                
-            }            
+                }
+            }
         }
         if pod_message.resource_version > self.max_resource_version {
             self.max_resource_version = pod_message.resource_version;

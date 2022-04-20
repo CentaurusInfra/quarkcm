@@ -14,14 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-pub mod rdma_ctrlconn;
 pub mod constants;
+pub mod rdma_ctrlconn;
 
 mod svc_client;
-//use svc_client::client::Client;
 use crate::rdma_ctrlconn::*;
-use svc_client::pod_informer::PodInformer;
 use svc_client::node_informer::NodeInformer;
+use svc_client::pod_informer::PodInformer;
 
 use lazy_static::lazy_static;
 
@@ -31,26 +30,19 @@ lazy_static! {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-
     let mut pod_informer = PodInformer::new().await?;
     let mut node_informer = NodeInformer::new().await?;
-    // tokio::join!(
-    //     pod_informer.run(),
-    //     node_informer.run(),
-    // );
-    let (pod_informer_result, node_informer_result) = tokio::join!(
-        pod_informer.run(),
-        node_informer.run(),
-    );
-    match pod_informer_result {        
+
+    let (pod_informer_result, node_informer_result) =
+        tokio::join!(pod_informer.run(), node_informer.run(),);
+    match pod_informer_result {
         Err(e) => println!("Pod informer error: {:?}", e),
         _ => (),
     }
-    match node_informer_result {        
+    match node_informer_result {
         Err(e) => println!("Node informer error: {:?}", e),
         _ => (),
     }
-    
     println!("Exit!");
     Ok(())
 }

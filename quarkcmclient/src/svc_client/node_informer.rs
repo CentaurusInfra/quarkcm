@@ -52,17 +52,12 @@ impl NodeInformer {
 
 impl NodeInformer {
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let mut client = QuarkCmServiceClient::connect(GRPC_SERVER_ADDRESS).await?;
         loop {
-            let mut node_stream = client
-                .watch_node(Request::new(MaxResourceVersionMessage {
-                    max_resource_version: self.max_resource_version,
-                    // max_resource_version: 0,
-                }))
-                .await?
-                .into_inner();
-            while let Some(node_message) = node_stream.message().await? {
-                self.handle(&node_message);
+            match self.run_watch().await {
+                Ok(_) => {}
+                Err(e) => {
+                    println!("Node watch error: {:?}", e);
+                }
             }
 
             if *RDMA_CTLINFO.exiting.lock() {
@@ -75,9 +70,23 @@ impl NodeInformer {
         }
         Ok(())
     }
-}
 
-impl NodeInformer {
+    async fn run_watch(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let mut client = QuarkCmServiceClient::connect(GRPC_SERVER_ADDRESS).await?;
+        let mut node_stream = client
+            .watch_node(Request::new(MaxResourceVersionMessage {
+                max_resource_version: self.max_resource_version,
+                // max_resource_version: 0,
+            }))
+            .await?
+            .into_inner();
+
+        while let Some(node_message) = node_stream.message().await? {
+            self.handle(&node_message);
+        }
+        Ok(())
+    }
+
     fn handle(&mut self, node_message: &NodeMessage) {
         let ip = node_message.ip;
         let mut nodes_map = RDMA_CTLINFO.nodes.lock();
