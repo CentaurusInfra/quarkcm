@@ -32,6 +32,7 @@ type DataStore struct {
 	NodeMap             map[string]*objects.NodeObject                // map[node name] => node object
 	NodeEventMap        map[int]*objects.NodeEventObject              // map[resource version] => node event object
 	NodeQueueMap        map[uuid.UUID]workqueue.RateLimitingInterface // map[guid] => node queue
+	NodeIPMap           map[string]bool                               // map[node ip] => not using, this map is used as hashset
 
 	PodResourceVersion int
 	PodMap             map[string]*objects.PodObject                 // map[key] => pod object
@@ -52,6 +53,7 @@ func Instance() *DataStore {
 				NodeMap:             map[string]*objects.NodeObject{},
 				NodeEventMap:        map[int]*objects.NodeEventObject{},
 				NodeQueueMap:        map[uuid.UUID]workqueue.RateLimitingInterface{},
+				NodeIPMap:           map[string]bool{},
 
 				PodResourceVersion: 0,
 				PodMap:             map[string]*objects.PodObject{},
@@ -111,6 +113,8 @@ func SetNode(name string, nodeHostname string, nodeIP string, creationTimestamp 
 		Instance().NodeEventMap[resourceVersion] = newNodeEvent
 		EnqueueNode(*newNodeEvent)
 
+		Instance().NodeIPMap[nodeIP] = true
+
 		nodeStr, _ := json.Marshal(nodeMap[name])
 		klog.Infof("Handling node completed. Node set as %s. Tracking Id: %s", nodeStr, trackingId)
 	}
@@ -120,6 +124,7 @@ func DeleteNode(name string, trackingId string) {
 	nodeMap := Instance().NodeMap
 	node, exists := nodeMap[name]
 	if exists {
+		delete(Instance().NodeIPMap, node.IP)
 		resourceVersion := calculateNextNodeResourceVersion()
 		newNodeEvent := &objects.NodeEventObject{
 			ResourceVersion: resourceVersion,
@@ -159,6 +164,12 @@ func RemoveNodeQueue(key uuid.UUID) {
 }
 
 func SetPod(key string, podIP string, nodeName string, trackingId string) {
+	_, isNodeIP := Instance().NodeIPMap[podIP]
+	if isNodeIP {
+		klog.Infof("IP of pod %s is the same as node's ip. Ignore the pod. Tracking Id: %s", key, trackingId)
+		return
+	}
+
 	podMap := Instance().PodMap
 	pod, exists := podMap[key]
 	changed := false

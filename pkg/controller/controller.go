@@ -56,17 +56,18 @@ func Start() {
 		kubeClient = utils.GetClient()
 	}
 
+	nodeController := NewNodeController(kubeClient)
+	nodeStopCh := make(chan struct{})
+	defer close(nodeStopCh)
+
+	nodeController.Start(nodeStopCh) // Sync start node controller first, to generating node ip set for filtering pod ip
+	go nodeController.Wait(nodeStopCh)
+
 	podController := NewPodController(kubeClient)
 	podStopCh := make(chan struct{})
 	defer close(podStopCh)
 
 	go podController.Run(podStopCh)
-
-	nodeController := NewNodeController(kubeClient)
-	nodeStopCh := make(chan struct{})
-	defer close(nodeStopCh)
-
-	go nodeController.Run(nodeStopCh)
 
 	sigterm := make(chan os.Signal, 1)
 	signal.Notify(sigterm, syscall.SIGTERM)
@@ -74,10 +75,13 @@ func Start() {
 	<-sigterm
 }
 
-// Run starts the quarkcm controller
 func (c *Controller) Run(stopCh <-chan struct{}) {
+	c.Start(stopCh)
+	c.Wait(stopCh)
+}
+
+func (c *Controller) Start(stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
-	defer c.queue.ShutDown()
 
 	klog.Infof("Starting quarkcm %s controller", c.resourceType)
 	go c.informer.Run(stopCh)
@@ -86,9 +90,12 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 		utilruntime.HandleError(fmt.Errorf("%s controller timed out waiting for caches to sync", c.resourceType))
 		return
 	}
-
 	klog.Infof("quarkcm %s controller synced and ready", c.resourceType)
+}
 
+func (c *Controller) Wait(stopCh <-chan struct{}) {
+	defer utilruntime.HandleCrash()
+	defer c.queue.ShutDown()
 	wait.Until(c.runWorker, time.Second, stopCh)
 }
 
